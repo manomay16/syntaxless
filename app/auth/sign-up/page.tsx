@@ -79,8 +79,8 @@ export default function SignUp() {
       <main className="flex-1 flex items-center justify-center p-4">
         <Card className="w-full max-w-md">
           <CardHeader>
-            <CardTitle className="text-2xl">Sign Up for Pseudolang</CardTitle>
-            <CardDescription>Create an account to get started with Pseudolang</CardDescription>
+            <CardTitle className="text-2xl">Sign Up for Syntaxless</CardTitle>
+            <CardDescription>Create an account to get started with Syntaxless</CardDescription>
           </CardHeader>
           <CardContent>
             {error && (

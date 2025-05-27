@@ -5,12 +5,15 @@ import { useParams, useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Play, Save, Share, Download, MessageSquare, ArrowLeft } from "lucide-react"
+import { Play, Save, Share, Download, MessageSquare, ArrowLeft, ToggleLeft, ToggleRight, Code2 } from "lucide-react"
 import CodeMirror from "@uiw/react-codemirror"
 import { python } from "@codemirror/lang-python"
+import { javascript } from "@codemirror/lang-javascript"
+import { java } from "@codemirror/lang-java"
+import { cpp } from "@codemirror/lang-cpp"
 import { vscodeDark } from "@uiw/codemirror-theme-vscode"
 import { xcodeLight } from "@uiw/codemirror-theme-xcode"
 import { useTheme } from "next-themes"
@@ -21,6 +24,13 @@ interface Project {
   code: string | null
   generated_code: string | null
 }
+
+const languages = [
+  { value: "python", label: "Python", extension: python() },
+  { value: "javascript", label: "JavaScript", extension: javascript() },
+  { value: "java", label: "Java", extension: java() },
+  { value: "cpp", label: "C++", extension: cpp() },
+]
 
 export default function IDEPage() {
   const { projectId } = useParams()
@@ -33,6 +43,8 @@ export default function IDEPage() {
   const [loading, setLoading] = useState(true)
   const [naturalLanguageCode, setNaturalLanguageCode] = useState("")
   const [generatedCode, setGeneratedCode] = useState("")
+  const [selectedLanguage, setSelectedLanguage] = useState("python")
+  const [showNaturalLanguage, setShowNaturalLanguage] = useState(true)
   const [consoleOutput, setConsoleOutput] = useState("")
   const [clarifications, setClarifications] = useState<string[]>([])
   const [isSaving, setIsSaving] = useState(false)
@@ -95,15 +107,12 @@ export default function IDEPage() {
       }
 
       setSuccess("Project saved successfully")
+      setTimeout(() => setSuccess(null), 3000)
     } catch (error) {
       console.error("Error saving project:", error)
       setError("Failed to save project")
     } finally {
       setIsSaving(false)
-      // Clear success message after 3 seconds
-      if (success) {
-        setTimeout(() => setSuccess(null), 3000)
-      }
     }
   }
 
@@ -114,7 +123,6 @@ export default function IDEPage() {
     setClarifications([])
 
     try {
-      // Mock API call to /api/translate
       const response = await fetch("/api/translate", {
         method: "POST",
         headers: {
@@ -123,6 +131,7 @@ export default function IDEPage() {
         body: JSON.stringify({
           code: naturalLanguageCode,
           projectId: project?.id,
+          language: selectedLanguage,
         }),
       })
 
@@ -132,18 +141,16 @@ export default function IDEPage() {
 
       const data = await response.json()
 
-      // Set the generated code
       setGeneratedCode(data.generatedCode)
-
-      // Set console output
       setConsoleOutput(data.output || "Code executed successfully!")
 
-      // Set clarifications if any
       if (data.clarifications && data.clarifications.length > 0) {
         setClarifications(data.clarifications)
       }
 
-      // Save the project with the new generated code
+      // Auto-switch to generated code view after running
+      setShowNaturalLanguage(false)
+
       await handleSave()
     } catch (error) {
       console.error("Error running code:", error)
@@ -157,11 +164,19 @@ export default function IDEPage() {
   function handleDownload() {
     if (!generatedCode) return
 
+    const languageExtensions = {
+      python: "py",
+      javascript: "js",
+      java: "java",
+      cpp: "cpp",
+    }
+
+    const extension = languageExtensions[selectedLanguage as keyof typeof languageExtensions] || "txt"
     const blob = new Blob([generatedCode], { type: "text/plain" })
     const url = URL.createObjectURL(blob)
     const a = document.createElement("a")
     a.href = url
-    a.download = `${project?.name || "code"}.py`
+    a.download = `${project?.name || "code"}.${extension}`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
@@ -171,10 +186,8 @@ export default function IDEPage() {
   function handleShare() {
     if (!project) return
 
-    // In a real app, this would generate a shareable link
     const shareableLink = `${window.location.origin}/ide/${project.id}`
 
-    // Copy to clipboard
     navigator.clipboard
       .writeText(shareableLink)
       .then(() => {
@@ -185,6 +198,8 @@ export default function IDEPage() {
         setError("Failed to copy link")
       })
   }
+
+  const currentLanguage = languages.find((lang) => lang.value === selectedLanguage)
 
   if (loading) {
     return (
@@ -215,9 +230,27 @@ export default function IDEPage() {
     <div className="flex flex-col h-[calc(100vh-4rem)]">
       {/* Toolbar */}
       <div className="flex items-center justify-between border-b p-2">
-        <div className="flex items-center">
-          <h1 className="text-lg font-semibold mr-4">{project?.name || "Untitled Project"}</h1>
+        <div className="flex items-center gap-4">
+          <h1 className="text-lg font-semibold">{project?.name || "Untitled Project"}</h1>
+
+          {/* Language Selection */}
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium">Language:</span>
+            <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
+              <SelectTrigger className="w-32">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {languages.map((lang) => (
+                  <SelectItem key={lang.value} value={lang.value}>
+                    {lang.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
+
         <div className="flex items-center gap-2">
           <TooltipProvider>
             <Tooltip>
@@ -290,120 +323,127 @@ export default function IDEPage() {
         </Alert>
       )}
 
-      {/* Main IDE Area */}
-      <ResizablePanelGroup direction="horizontal" className="flex-1">
-        {/* Left Panel - Natural Language Editor */}
-        <ResizablePanel defaultSize={50} minSize={30}>
-          <div className="flex flex-col h-full">
-            <div className="p-2 border-b font-medium">Natural Language</div>
-            <div className="flex-1 overflow-auto">
-              <CodeMirror
-                value={naturalLanguageCode}
-                onChange={setNaturalLanguageCode}
-                height="100%"
-                theme={isDarkTheme ? vscodeDark : xcodeLight}
-                placeholder="Write instructions in plain English…"
-                basicSetup={{
-                  lineNumbers: true,
-                  highlightActiveLine: true,
-                }}
-                className="text-foreground"
-              />
-            </div>
+      {/* Main Code Area */}
+      <div className="flex-1 flex flex-col">
+        {/* Code Section Header with Toggle */}
+        <div className="flex items-center justify-between border-b p-2 bg-muted/30">
+          <div className="flex items-center gap-2">
+            <span className="font-medium">
+              {showNaturalLanguage ? "Natural Language" : `Generated ${currentLanguage?.label} Code`}
+            </span>
           </div>
-        </ResizablePanel>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowNaturalLanguage(!showNaturalLanguage)}
+            className="flex items-center gap-2"
+          >
+            {showNaturalLanguage ? (
+              <>
+                <Code2 className="h-4 w-4" />
+                Show Generated Code
+                <ToggleRight className="h-4 w-4" />
+              </>
+            ) : (
+              <>
+                <ToggleLeft className="h-4 w-4" />
+                Show Natural Language
+                <MessageSquare className="h-4 w-4" />
+              </>
+            )}
+          </Button>
+        </div>
 
-        <ResizableHandle />
+        {/* Code Editor */}
+        <div className="flex-1 overflow-auto">
+          {showNaturalLanguage ? (
+            <CodeMirror
+              value={naturalLanguageCode}
+              onChange={setNaturalLanguageCode}
+              height="100%"
+              theme={isDarkTheme ? vscodeDark : xcodeLight}
+              placeholder="Write instructions in plain English…"
+              basicSetup={{
+                lineNumbers: true,
+                highlightActiveLine: true,
+              }}
+              className="text-foreground h-full"
+            />
+          ) : (
+            <CodeMirror
+              value={generatedCode}
+              height="100%"
+              theme={isDarkTheme ? vscodeDark : xcodeLight}
+              extensions={currentLanguage ? [currentLanguage.extension] : []}
+              readOnly={true}
+              basicSetup={{
+                lineNumbers: true,
+                highlightActiveLine: false,
+              }}
+              className="text-foreground h-full"
+            />
+          )}
+        </div>
+      </div>
 
-        {/* Right Panel - Generated Code and Console */}
-        <ResizablePanel defaultSize={50} minSize={30}>
-          <ResizablePanelGroup direction="vertical">
-            {/* Generated Code Panel */}
-            <ResizablePanel defaultSize={70} minSize={30}>
-              <div className="flex flex-col h-full">
-                <div className="p-2 border-b font-medium">Generated Python Code</div>
-                <div className="flex-1 overflow-auto">
-                  <CodeMirror
-                    value={generatedCode}
-                    height="100%"
-                    theme={isDarkTheme ? vscodeDark : xcodeLight}
-                    extensions={[python()]}
-                    readOnly={true}
-                    basicSetup={{
-                      lineNumbers: true,
-                      highlightActiveLine: false,
-                    }}
-                    className="text-foreground"
-                  />
+      {/* Bottom Console/Clarifications Section */}
+      <div className="border-t bg-background" style={{ height: "200px" }}>
+        <Tabs defaultValue="console" className="h-full flex flex-col">
+          <div className="flex items-center justify-between border-b p-2">
+            <TabsList>
+              <TabsTrigger value="console">Console</TabsTrigger>
+              <TabsTrigger value="clarifications">
+                Clarifications
+                {clarifications.length > 0 && (
+                  <span className="ml-2 rounded-full bg-primary text-primary-foreground px-2 py-0.5 text-xs">
+                    {clarifications.length}
+                  </span>
+                )}
+              </TabsTrigger>
+            </TabsList>
+          </div>
+
+          <TabsContent value="console" className="flex-1 p-0 m-0">
+            <div className="h-full bg-muted/30 p-4 font-mono text-sm overflow-auto">
+              {isRunning ? (
+                <div className="flex items-center gap-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                  <span>Running code...</span>
                 </div>
-              </div>
-            </ResizablePanel>
+              ) : consoleOutput ? (
+                <pre className="whitespace-pre-wrap">{consoleOutput}</pre>
+              ) : (
+                <div className="text-muted-foreground">Console output will appear here after running your code.</div>
+              )}
+            </div>
+          </TabsContent>
 
-            <ResizableHandle />
-
-            {/* Console Output Panel */}
-            <ResizablePanel defaultSize={30} minSize={20}>
-              <Tabs defaultValue="console">
-                <div className="flex items-center justify-between border-b p-2">
-                  <TabsList>
-                    <TabsTrigger value="console">Console</TabsTrigger>
-                    <TabsTrigger value="clarifications">
-                      Clarifications
-                      {clarifications.length > 0 && (
-                        <span className="ml-2 rounded-full bg-primary text-primary-foreground px-2 py-0.5 text-xs">
-                          {clarifications.length}
-                        </span>
-                      )}
-                    </TabsTrigger>
-                  </TabsList>
+          <TabsContent value="clarifications" className="flex-1 p-0 m-0">
+            <div className="h-full overflow-auto">
+              {clarifications.length > 0 ? (
+                <div className="p-4 space-y-4">
+                  {clarifications.map((clarification, index) => (
+                    <div key={index} className="flex items-start gap-3 p-3 border rounded-md">
+                      <MessageSquare className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-medium">Clarification needed:</p>
+                        <p className="text-muted-foreground">{clarification}</p>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-
-                <TabsContent value="console" className="p-0 h-full">
-                  <div className="h-full bg-muted/30 p-4 font-mono text-sm overflow-auto">
-                    {isRunning ? (
-                      <div className="flex items-center gap-2">
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
-                        <span>Running code...</span>
-                      </div>
-                    ) : consoleOutput ? (
-                      <pre className="whitespace-pre-wrap">{consoleOutput}</pre>
-                    ) : (
-                      <div className="text-muted-foreground">
-                        Console output will appear here after running your code.
-                      </div>
-                    )}
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="clarifications" className="p-0 h-full">
-                  <div className="h-full overflow-auto">
-                    {clarifications.length > 0 ? (
-                      <div className="p-4 space-y-4">
-                        {clarifications.map((clarification, index) => (
-                          <div key={index} className="flex items-start gap-3 p-3 border rounded-md">
-                            <MessageSquare className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-                            <div>
-                              <p className="font-medium">Clarification needed:</p>
-                              <p className="text-muted-foreground">{clarification}</p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="flex flex-col items-center justify-center h-full text-center p-4">
-                        <MessageSquare className="h-8 w-8 text-muted-foreground mb-2" />
-                        <p className="text-muted-foreground">
-                          When your code needs clarification, questions will appear here.
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </TabsContent>
-              </Tabs>
-            </ResizablePanel>
-          </ResizablePanelGroup>
-        </ResizablePanel>
-      </ResizablePanelGroup>
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full text-center p-4">
+                  <MessageSquare className="h-8 w-8 text-muted-foreground mb-2" />
+                  <p className="text-muted-foreground">
+                    When your code needs clarification, questions will appear here.
+                  </p>
+                </div>
+              )}
+            </div>
+          </TabsContent>
+        </Tabs>
+      </div>
     </div>
   )
 }

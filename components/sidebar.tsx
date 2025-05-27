@@ -69,7 +69,7 @@ export function Sidebar({ className }: SidebarProps) {
     >
       <div className="flex h-14 items-center border-b px-3 py-4">
         <Link href="/dashboard" className="flex items-center gap-2">
-          {!collapsed && <span className="text-xl font-bold">Pseudolang</span>}
+          {!collapsed && <span className="text-xl font-bold">Syntaxless</span>}
         </Link>
         <Button
           variant="ghost"

@@ -40,7 +40,7 @@ export default function LandingPage() {
                 </div>
                 <h3 className="text-xl font-bold">Write in Plain English</h3>
                 <p className="text-muted-foreground">
-                  Describe what you want your code to do in natural language, and let Pseudolang handle the rest.
+                  Describe what you want your code to do in natural language, and let Syntaxless handle the rest.
                 </p>
               </div>
               <div className="space-y-4">

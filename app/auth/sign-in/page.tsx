@@ -77,7 +77,7 @@ export default function SignIn() {
       <main className="flex-1 flex items-center justify-center p-4">
         <Card className="w-full max-w-md">
           <CardHeader>
-            <CardTitle className="text-2xl">Sign In to Pseudolang</CardTitle>
+            <CardTitle className="text-2xl">Sign In to Syntaxless</CardTitle>
             <CardDescription>Enter your email and password to sign in to your account</CardDescription>
           </CardHeader>
           <CardContent>

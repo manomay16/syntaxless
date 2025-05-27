@@ -7,8 +7,8 @@ import { ThemeProvider } from "@/components/theme-provider"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Pseudolang - Code in Plain English",
-  description: "Transform natural language into code with Pseudolang",
+  title: "Syntaxless - Code in Plain English",
+  description: "Transform natural language into code with Syntaxless",
     generator: 'v0.dev'
 }
 

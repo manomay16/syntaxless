@@ -1,14 +1,15 @@
-# Pseudolang - Code in Plain English
+# Syntaxless - Code in Plain English
 
-Pseudolang is a web application that allows users to write code in plain English. It uses AI to translate natural language instructions into working code.
+Syntaxless is a web application that allows users to write code in plain English. It uses AI to translate natural language instructions into working code in multiple programming languages.
 
 ## Features
 
 - **Natural Language to Code**: Write instructions in plain English and get working code.
-- **Multiple Languages**: Currently supports Python and JavaScript.
+- **Multiple Languages**: Supports Python, JavaScript, Java, and C++.
 - **Project Management**: Create, save, and manage your coding projects.
-- **Interactive IDE**: Write, run, and debug your code in the browser.
+- **Interactive IDE**: Write, run, and debug your code in the browser with a streamlined interface.
 - **Authentication**: Secure authentication with email/password and Google OAuth.
+- **Language Selection**: Choose your target programming language from a dropdown menu.
 
 ## Getting Started
 
@@ -22,8 +23,8 @@ Pseudolang is a web application that allows users to write code in plain English
 
 1. Clone the repository:
    \`\`\`bash
-   git clone https://github.com/yourusername/pseudolang.git
-   cd pseudolang
+   git clone https://github.com/yourusername/syntaxless.git
+   cd syntaxless
    \`\`\`
 
 2. Install dependencies:
@@ -85,6 +86,13 @@ CREATE POLICY "Users can delete their own projects"
   USING (auth.uid() = user_id);
 \`\`\`
 
+## IDE Features
+
+- **Single Code View**: Toggle between natural language input and generated code for maximum screen space
+- **Language Selection**: Choose from Python, JavaScript, Java, or C++ for code generation
+- **Bottom Console**: View output and clarifications in a dedicated bottom panel
+- **Real-time Translation**: Convert natural language to code instantly
+
 ## Technologies Used
 
 - Next.js 14
@@ -97,6 +105,3 @@ CREATE POLICY "Users can delete their own projects"
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
-\`\`\`
-
-Let's update the globals.css to ensure proper theme support:
