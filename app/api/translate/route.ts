@@ -36,7 +36,8 @@ Follow these rules exactly:
         multiply by 3
 
 4. Ambiguous or Impossible Instructions  
-   • Don’t emit inline errors.  
+   • Don’t emit inline errors. 
+   If it is ambiguous, still write the exact pseudocode line (not as a comment) with a comment above saying line written in pseudocode due to ambiguitiy. 
    • Instead, append a human-readable question about that line to an array called 'clarifications'.
    • **Under-specified tasks**:  
     - If an instruction describes behavior you cannot code without extra details (for example “make a program that prints all odd numbers” → you don’t know what range or input source to use), treat it as ambiguous.  
@@ -60,7 +61,12 @@ ${nlCode}
 `;
 
     // Get the model
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+    const model = genAI.getGenerativeModel({ 
+      model: "gemini-2.0-flash",
+      generationConfig: {
+        temperature: 0.0
+      }
+    });
 
     // Call Gemini to generate the code
     const result = await model.generateContent(prompt);

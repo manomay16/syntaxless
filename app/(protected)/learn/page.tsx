@@ -11,17 +11,17 @@ import { BookOpen, Code, FileText, Terminal, Zap, CheckCircle } from "lucide-rea
 const tutorials = [
   {
     id: 1,
-    title: "Getting Started with NatCode",
-    description: "Learn the basics of using NatCode to write code in plain English.",
+    title: "Getting Started with Syntaxless",
+    description: "Learn the basics of using Syntaxless to write code in plain English.",
     progress: 100,
     icon: BookOpen,
     content: `
-      <h2>Welcome to NatCode!</h2>
-      <p>NatCode allows you to write code using plain English. This tutorial will guide you through the basics.</p>
+      <h2>Welcome to Syntaxless!</h2>
+      <p>Syntaxless allows you to write code using plain English. This tutorial will guide you through the basics.</p>
       <h3>How it works:</h3>
       <ol>
         <li>Write instructions in natural language</li>
-        <li>NatCode translates your instructions into code</li>
+        <li>Syntaxless translates your instructions into code</li>
         <li>Review and run the generated code</li>
       </ol>
       <p>Let's get started with your first project!</p>
@@ -55,7 +55,7 @@ const tutorials = [
     icon: FileText,
     content: `
       <h2>Working with Data Structures</h2>
-      <p>NatCode makes it easy to work with common data structures like lists and dictionaries.</p>
+      <p>Syntaxless makes it easy to work with common data structures like lists and dictionaries.</p>
       <h3>Example: Creating a List</h3>
       <p>Try typing: "Create a list of fruits containing apple, banana, and orange, then print each fruit"</p>
       <h3>Example: Creating a Dictionary</h3>
@@ -82,12 +82,12 @@ const tutorials = [
   {
     id: 5,
     title: "Advanced Techniques",
-    description: "Explore more complex programming concepts with NatCode.",
+    description: "Explore more complex programming concepts with Syntaxless.",
     progress: 0,
     icon: Zap,
     content: `
       <h2>Advanced Techniques</h2>
-      <p>NatCode can handle more complex programming concepts too!</p>
+      <p>Syntaxless can handle more complex programming concepts too!</p>
       <h3>Example: Functions</h3>
       <p>Try typing: "Create a function that calculates the factorial of a number, then calculate factorial of 5"</p>
       <h3>Example: File Operations</h3>

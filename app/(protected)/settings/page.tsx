@@ -223,7 +223,7 @@ export default function SettingsPage() {
                   </Button>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  Your API key is used to authenticate requests to the NatCode API.
+                  Your API key is used to authenticate requests to the Syntaxless API.
                 </p>
               </div>
             </CardContent>
