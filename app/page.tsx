@@ -1,10 +1,35 @@
+'use client'
+import React, { useState } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { PublicNavbar } from "@/components/public-navbar"
 import { Footer } from "@/components/footer"
-import { CodeIcon, BrainIcon, SparklesIcon, ZapIcon } from "lucide-react"
+import { CodeIcon, BrainIcon, SparklesIcon, ZapIcon, MessageSquare } from "lucide-react"
+//import { Spinner } from "@/components/ui/spinner"
 
 export default function LandingPage() {
+  const [showNaturalLanguage, setShowNaturalLanguage] = useState(true)
+  const [generatedCode, setGeneratedCode] = useState<string>("")
+  const [isLoadingCode, setIsLoadingCode] = useState<boolean>(false)
+
+  const handleToggle = async () => {
+    const willShowCode = showNaturalLanguage
+    setShowNaturalLanguage(!showNaturalLanguage)
+
+    if (willShowCode) {
+      setIsLoadingCode(true)
+      try {
+        const res = await fetch(`/api/translation`)
+        const { translation } = await res.json()
+        setGeneratedCode(translation)
+      } catch (error) {
+        console.error("Translation fetch failed", error)
+      } finally {
+        setIsLoadingCode(false)
+      }
+    }
+  }
+
   return (
     <div className="flex min-h-screen flex-col">
       <PublicNavbar />
@@ -73,6 +98,34 @@ export default function LandingPage() {
             </div>
           </div>
         </section>
+
+        {/* Show Generated Code Toggle & Display */}
+        <div className="container px-4 md:px-6 mt-12 text-center">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleToggle}
+            className="flex items-center gap-2 mx-auto"
+          >
+            {showNaturalLanguage
+              ? <>Show Generated Code <CodeIcon /></>
+              : <>Show Natural Language <MessageSquare className="h-4 w-4" /></>
+            }
+          </Button>
+          <div className="mt-4">
+            {showNaturalLanguage ? (
+              <p className="text-muted-foreground">
+                Describe your instructions in plain English to see the translation here.
+              </p>
+           ) : isLoadingCode ? (
+            <p>Loading…</p>
+          ) : (
+              <pre className="p-4 bg-gray-100 rounded overflow-x-auto max-w-4xl mx-auto">
+                {generatedCode}
+              </pre>
+            )}
+          </div>
+        </div>
       </main>
       <Footer />
     </div>
