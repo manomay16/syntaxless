@@ -119,43 +119,48 @@ export default function IDEPage() {
   async function handleRun() {
     setIsRunning(true)
     setError(null)
-    setConsoleOutput("")
+    setConsoleOutput("")        // clear old output
     setClarifications([])
 
     try {
-      const response = await fetch("/api/translate", {
+      // 1️⃣ Translate NL → code
+      const translateRes = await fetch("/api/translate", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           code: naturalLanguageCode,
           projectId: project?.id,
           language: selectedLanguage,
         }),
       })
+      if (!translateRes.ok) throw new Error("Translation failed")
+      const { generatedCode: newCode, clarifications: newClars } = await translateRes.json()
+      setGeneratedCode(newCode)
+      if (newClars?.length) setClarifications(newClars)
 
-      if (!response.ok) {
-        throw new Error("Failed to translate code")
+      // 2️⃣ Run the generated code
+      const runRes = await fetch("/api/run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: newCode, language: selectedLanguage }),
+      })
+      if (!runRes.ok) throw new Error("Execution failed")
+      const runData = await runRes.json()
+
+      // 3️⃣ Display real output or errors
+      if (runData.success) {
+        setConsoleOutput(runData.output)
+      } else {
+        setConsoleOutput(runData.output ?? runData.error ?? "Unknown execution error")
       }
 
-      const data = await response.json()
-
-      setGeneratedCode(data.generatedCode)
-      setConsoleOutput(data.output || "Code executed successfully!")
-
-      if (data.clarifications && data.clarifications.length > 0) {
-        setClarifications(data.clarifications)
-      }
-
-      // Auto-switch to generated code view after running
+      // 4️⃣ Switch to code view and auto-save
       setShowNaturalLanguage(false)
-
       await handleSave()
-    } catch (error) {
-      console.error("Error running code:", error)
-      setError("Failed to run code")
-      setConsoleOutput("Error: Failed to run code")
+    } catch (err: any) {
+      console.error(err)
+      setError(err.message || "Run pipeline error")
+      setConsoleOutput(`Error: ${err.message || "Something went wrong"}`)
     } finally {
       setIsRunning(false)
     }
