@@ -14,6 +14,7 @@ export async function POST(request: Request) {
     // Build a prompt for the LLM
     const prompt = `
 You are a coding assistant. Translate the following natural-language instructions into ${language} code.
+Do not add any '''python or anything of the sort. Just output valid ${language} code.
 Instructions:
 You are a code interpreter that converts semi-natural, step-by-step pseudocode into actual programming code. Your job is to map each line of pseudocode directly to code, with no inference or extra fixes. Follow these rules exactly:
 
