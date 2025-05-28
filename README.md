@@ -1,6 +1,6 @@
 # Syntaxless - Code in Plain English
 
-Syntaxless is a web application that allows users to write code in plain English. It uses AI to translate natural language instructions into working code in multiple programming languages.
+Syntaxless is a web application that allows users to write code in plain English. It uses AI to translate natural language instructions into working code in multiple programming languages
 
 ## Features
 
