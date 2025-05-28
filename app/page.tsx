@@ -19,7 +19,7 @@ export default function LandingPage() {
     if (willShowCode) {
       setIsLoadingCode(true)
       try {
-        const res = await fetch(`/api/translation`)
+        const res = await fetch('/api/translate')
         const { translation } = await res.json()
         setGeneratedCode(translation)
       } catch (error) {

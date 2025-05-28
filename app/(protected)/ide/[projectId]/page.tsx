@@ -1,4 +1,4 @@
-"use client"
+'use client'
 
 import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
@@ -45,6 +45,7 @@ export default function IDEPage() {
   const [generatedCode, setGeneratedCode] = useState("")
   const [selectedLanguage, setSelectedLanguage] = useState("python")
   const [showNaturalLanguage, setShowNaturalLanguage] = useState(true)
+  const [isTranslating, setIsTranslating] = useState(false)    // ← added
   const [consoleOutput, setConsoleOutput] = useState("")
   const [clarifications, setClarifications] = useState<string[]>([])
   const [isSaving, setIsSaving] = useState(false)
@@ -154,8 +155,7 @@ export default function IDEPage() {
         setConsoleOutput(runData.output ?? runData.error ?? "Unknown execution error")
       }
 
-      // 4️⃣ Switch to code view and auto-save
-      //setShowNaturalLanguage(false)
+      // 4️⃣ auto-save after run
       await handleSave()
     } catch (err: any) {
       console.error(err)
@@ -204,7 +204,34 @@ export default function IDEPage() {
       })
   }
 
-  const currentLanguage = languages.find((lang) => lang.value === selectedLanguage)
+  // ─── NEW: toggle + re-translate on every “Show Generated Code” click ───
+  async function handleToggle() {
+    if (showNaturalLanguage) {
+      setIsTranslating(true)
+      setError(null)
+      try {
+        const res = await fetch("/api/translate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            code: naturalLanguageCode,
+            projectId,
+            language: selectedLanguage,
+          }),
+        })
+        if (!res.ok) throw new Error("Translation failed")
+        const { generatedCode: newCode } = await res.json()
+        setGeneratedCode(newCode)
+      } catch (err: any) {
+        console.error(err)
+        setError(err.message || "Translation failed")
+      } finally {
+        setIsTranslating(false)
+      }
+    }
+    setShowNaturalLanguage(v => !v)
+  }
+  // ────────────────────────────────────────────────────────────────
 
   if (loading) {
     return (
@@ -231,13 +258,14 @@ export default function IDEPage() {
     )
   }
 
+  const currentLanguage = languages.find((lang) => lang.value === selectedLanguage)
+
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)]">
       {/* Toolbar */}
       <div className="flex items-center justify-between border-b p-2">
         <div className="flex items-center gap-4">
           <h1 className="text-lg font-semibold">{project?.name || "Untitled Project"}</h1>
-
           {/* Language Selection */}
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium">Language:</span>
@@ -255,7 +283,6 @@ export default function IDEPage() {
             </Select>
           </div>
         </div>
-
         <div className="flex items-center gap-2">
           <TooltipProvider>
             <Tooltip>
@@ -270,7 +297,6 @@ export default function IDEPage() {
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
-
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -284,7 +310,6 @@ export default function IDEPage() {
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
-
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -298,7 +323,6 @@ export default function IDEPage() {
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
-
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -321,7 +345,6 @@ export default function IDEPage() {
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
-
       {success && (
         <Alert className="m-2">
           <AlertDescription>{success}</AlertDescription>
@@ -340,7 +363,8 @@ export default function IDEPage() {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => setShowNaturalLanguage(!showNaturalLanguage)}
+            onClick={handleToggle}
+            disabled={isTranslating}
             className="flex items-center gap-2"
           >
             {showNaturalLanguage ? (
@@ -368,10 +392,7 @@ export default function IDEPage() {
               height="100%"
               theme={isDarkTheme ? vscodeDark : xcodeLight}
               placeholder="Write instructions in plain English…"
-              basicSetup={{
-                lineNumbers: true,
-                highlightActiveLine: true,
-              }}
+              basicSetup={{ lineNumbers: true, highlightActiveLine: true }}
               className="text-foreground h-full"
             />
           ) : (
@@ -380,11 +401,8 @@ export default function IDEPage() {
               height="100%"
               theme={isDarkTheme ? vscodeDark : xcodeLight}
               extensions={currentLanguage ? [currentLanguage.extension] : []}
-              readOnly={true}
-              basicSetup={{
-                lineNumbers: true,
-                highlightActiveLine: false,
-              }}
+              readOnly
+              basicSetup={{ lineNumbers: true, highlightActiveLine: false }}
               className="text-foreground h-full"
             />
           )}
