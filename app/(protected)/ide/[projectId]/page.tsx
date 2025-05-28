@@ -155,7 +155,7 @@ export default function IDEPage() {
       }
 
       // 4️⃣ Switch to code view and auto-save
-      setShowNaturalLanguage(false)
+      //setShowNaturalLanguage(false)
       await handleSave()
     } catch (err: any) {
       console.error(err)
