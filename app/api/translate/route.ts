@@ -27,7 +27,7 @@ Follow these rules exactly:
    • If an instruction would run (even with logic or runtime errors), translate it verbatim—do not alter or “fix” it.
 
 3. Handling Syntax Errors and Invalid Fragments  
-   • If an instruction would cause a syntax error, treat it as “pseudocode due to error.”  
+   • If an instruction would cause a syntax error, treat it as “pseudocode due to syntax error.” 
      1. Write this comment above the code line:  
         # Line written in pseudocode due to error  
      2. On the next line, **echo the original natural-language instruction exactly as written**, rather than attempting any code translation.  

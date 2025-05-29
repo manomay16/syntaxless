@@ -71,7 +71,7 @@ export default function LandingPage() {
           </div>
 
           {/* Content overlay */}
-          <div className="relative z-10 container px-4 md:px-6">
+          <div className="relative z-10 container px-4 md:px-6 text-foreground">
             <div className="flex flex-col items-center space-y-6 text-center">
               <div className="space-y-4">
                 <h1 className="text-3xl font-mono font-bold tracking-wide sm:text-4xl md:text-5xl lg:text-6xl">
@@ -91,7 +91,7 @@ export default function LandingPage() {
                   />
                 </h1>
                 <p className="mx-auto max-w-[700px] text-lg font-body text-muted-foreground md:text-xl">
-                  Transform your natural language instructions into working code. No programming experience required.
+                  Transform your natural language instructions into working code. No programming experience required. Learn how to think like a coder.
                 </p>
               </div>
               <div className="space-x-4">
