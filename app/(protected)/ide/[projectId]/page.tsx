@@ -118,10 +118,10 @@ export default function IDEPage() {
   }
 
   async function handleRun() {
-    setIsRunning(true)
-    setError(null)
-    setConsoleOutput("")        // clear old output
-    setClarifications([])
+    setIsRunning(true);
+    setError(null);
+    setConsoleOutput("");
+    setClarifications([]);
 
     try {
       // 1️⃣ Translate NL → code
@@ -133,38 +133,78 @@ export default function IDEPage() {
           projectId: project?.id,
           language: selectedLanguage,
         }),
-      })
-      if (!translateRes.ok) throw new Error("Translation failed")
-      const { generatedCode: newCode, clarifications: newClars } = await translateRes.json()
-      setGeneratedCode(newCode)
-      if (newClars?.length) setClarifications(newClars)
+      });
+      if (!translateRes.ok) throw new Error("Translation failed");
+      const { generatedCode: newCode, clarifications: newClars } = await translateRes.json();
+      setGeneratedCode(newCode);
+      if (newClars?.length) setClarifications(newClars);
+      // ───────────────────────────────────────────────────────────────────
+  // ⚡️ Cleanup prompt‐strings so they don't echo in the console:
+  // Replace input("…") with bare input(), since we already popped those via window.prompt()
+  const cleanedCode = newCode.replace(
+    /input\s*\(\s*(['"`]).*?\1\s*\)/g,
+    "input()"
+  );
+  // Use cleanedCode from here on out
+  const processedCode = cleanedCode;
+  setGeneratedCode(processedCode);
+  // ───────────────────────────────────────────────────────────────────
 
-      // 2️⃣ Run the generated code
+     // 2️⃣ Detect all input(...) calls (with or without prompt text)
+const inputPrompts: string[] = [];
+const inputRe = /input\s*\(\s*(?:(['"`])(.*?)\1)?\s*\)/g;
+let m: RegExpExecArray | null;
+while ((m = inputRe.exec(newCode)) !== null) {
+  // m[2] is the string inside quotes, if provided
+  inputPrompts.push(m[2] ?? "");
+}
+
+// 3️⃣ Prompt the user for each input() call
+const answers: string[] = [];
+for (const promptText of inputPrompts) {
+  // fallback to a generic label if no prompt text was given
+  const question = promptText.trim() || "Enter program input:";
+  const ans = window.prompt(question, "");
+  if (ans === null) {
+    setError("Run cancelled by user");
+    setIsRunning(false);
+    return;
+  }
+  answers.push(ans);
+}
+
+// 4️⃣ Bundle all answers into one stdin string
+const stdin = answers.join("\n");
+
+      // 4️⃣ Execute with stdin
       const runRes = await fetch("/api/run", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: newCode, language: selectedLanguage }),
-      })
-      if (!runRes.ok) throw new Error("Execution failed")
-      const runData = await runRes.json()
-
-      // 3️⃣ Display real output or errors
-      if (runData.success) {
-        setConsoleOutput(runData.output)
+        body: JSON.stringify({
+          code: newCode,
+          language: selectedLanguage,
+          input: stdin,
+        }),
+      });
+      const runData = await runRes.json();
+      if (runRes.ok && runData.success) {
+        setConsoleOutput(runData.output);
       } else {
-        setConsoleOutput(runData.output ?? runData.error ?? "Unknown execution error")
+        setConsoleOutput(runData.output ?? runData.error ?? "Execution error");
       }
 
-      // 4️⃣ auto-save after run
-      await handleSave()
+      // 5️⃣ Auto‐save
+      await handleSave();
     } catch (err: any) {
-      console.error(err)
-      setError(err.message || "Run pipeline error")
-      setConsoleOutput(`Error: ${err.message || "Something went wrong"}`)
+      console.error(err);
+      setError(err.message || "Run pipeline error");
+      setConsoleOutput(`Error: ${err.message || "Something went wrong"}`);
     } finally {
-      setIsRunning(false)
+      setIsRunning(false);
     }
   }
+
+  
 
   function handleDownload() {
     if (!generatedCode) return
@@ -204,7 +244,7 @@ export default function IDEPage() {
       })
   }
 
-  // ─── NEW: toggle + re-translate on every “Show Generated Code” click ───
+  // ─── NEW: toggle + re-translate on every "Show Generated Code" click ───
   async function handleToggle() {
     if (showNaturalLanguage) {
       setIsTranslating(true)

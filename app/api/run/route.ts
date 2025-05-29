@@ -1,15 +1,22 @@
 // File: app/api/run/route.ts
 
 import { NextResponse } from "next/server";
-import { exec } from "child_process";
+import { spawnSync } from "child_process";
 import fs from "fs/promises";
 import os from "os";
 import path from "path";
 
+export const runtime = "nodejs";
+
+
 export async function POST(request: Request) {
   try {
-    const { code, language = "python" } = await request.json();
+    // ① Pull code, language, and the user’s collected stdin
+    const body = await request.json();
+const { code, language = "python", input: stdin = "" } = body;
 
+
+    // ② Only Python is supported here
     if (language !== "python") {
       return NextResponse.json(
         { success: false, error: `Language ${language} not supported` },
@@ -17,46 +24,36 @@ export async function POST(request: Request) {
       );
     }
 
-    // 1. Create a temporary directory
+    // ③ Write the code to a temp Python script
     const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "syntaxless-"));
     const filePath = path.join(tmpDir, "script.py");
-
-    // 2. Write the code to a file
     await fs.writeFile(filePath, code);
 
-    // 3. Execute the file with a timeout
-    return new Promise<NextResponse>((resolve) => {
-      exec(
-        `python "${filePath}"`,
-        { timeout: 5000, cwd: tmpDir },
-        (err, stdout, stderr) => {
-          // Clean up (optional):
-          // fs.rm(tmpDir, { recursive: true, force: true });
-
-          if (err) {
-            // If the script errors out, return stderr or the error message
-            resolve(
-              NextResponse.json({
-                success: false,
-                output: stderr || err.message,
-              })
-            );
-          } else {
-            // On success, return stdout
-            resolve(
-              NextResponse.json({
-                success: true,
-                output: stdout,
-              })
-            );
-          }
-        }
-      );
+    // ④ Spawn Python with the user’s input piped into stdin
+    const result = spawnSync("python", [filePath], {
+      cwd: tmpDir,
+      input: stdin,
+      encoding: "utf-8",
+      timeout: 5000,
     });
-  } catch (error: any) {
-    console.error("Error in /api/run:", error);
+
+    // ⑤ If Python errored, return stderr; otherwise return stdout
+    if (result.error || result.status !== 0) {
+      return NextResponse.json({
+        success: false,
+        output: result.stderr || result.error?.message || "Unknown error",
+      });
+    }
+
+    return NextResponse.json({
+      success: true,
+      output: result.stdout,
+    });
+
+  } catch (e: any) {
+    console.error("Error in /api/run:", e);
     return NextResponse.json(
-      { success: false, error: error.message ?? String(error) },
+      { success: false, error: e.message },
       { status: 500 }
     );
   }
