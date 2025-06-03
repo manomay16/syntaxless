@@ -3,6 +3,7 @@ import json
 import sys
 import io
 from contextlib import redirect_stdout, redirect_stderr
+import os
 
 class handler(BaseHTTPRequestHandler):
     def do_POST(self):
@@ -26,9 +27,20 @@ class handler(BaseHTTPRequestHandler):
             stderr = io.StringIO()
             
             try:
+                # Create a custom input function that returns empty string
+                def custom_input(prompt=""):
+                    print(prompt, end='', file=stdout)
+                    return ""
+                
+                # Create a namespace with our custom input function
+                namespace = {
+                    'input': custom_input,
+                    '__builtins__': __builtins__
+                }
+                
                 with redirect_stdout(stdout), redirect_stderr(stderr):
-                    # Execute the code
-                    exec(data['code'])
+                    # Execute the code with our custom namespace
+                    exec(data['code'], namespace)
                 
                 output = stdout.getvalue() or stderr.getvalue()
                 
@@ -55,4 +67,11 @@ class handler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps({
                 'success': False,
                 'output': 'Internal server error'
-            }).encode()) 
+            }).encode())
+
+if __name__ == '__main__':
+    from http.server import HTTPServer
+    port = int(os.environ.get('PORT', 3001))
+    server = HTTPServer(('localhost', port), handler)
+    print(f'Starting server on port {port}...')
+    server.serve_forever() 
