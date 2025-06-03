@@ -1,3 +1,5 @@
 python-json-logger==2.0.7
 werkzeug==2.3.7
-flask==2.3.3 
+flask==2.3.3
+python-dotenv==1.0.0
+requests==2.31.0 

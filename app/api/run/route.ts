@@ -7,6 +7,14 @@ import { writeFile, unlink } from 'fs/promises';
 
 const execAsync = promisify(exec);
 
+// Try different Python paths
+const PYTHON_PATHS = [
+  '/usr/bin/python3',
+  '/usr/local/bin/python3',
+  'python3',
+  'python'
+];
+
 export async function POST(request: Request) {
   let tempFile = '';
   try {
@@ -23,20 +31,32 @@ export async function POST(request: Request) {
     tempFile = join(tmpdir(), `code_${Date.now()}.py`);
     await writeFile(tempFile, body.code);
 
-    try {
-      // Execute the Python code
-      const { stdout, stderr } = await execAsync(`python ${tempFile}`);
-      
-      return NextResponse.json({
-        success: true,
-        output: stdout || stderr || ''
-      });
-    } catch (error: any) {
-      return NextResponse.json({
-        success: false,
-        output: error.stderr || error.message || 'Error executing code'
-      });
+    let lastError = null;
+    for (const pythonPath of PYTHON_PATHS) {
+      try {
+        // Execute the Python code with a timeout
+        const { stdout, stderr } = await Promise.race([
+          execAsync(`${pythonPath} ${tempFile}`),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Execution timed out')), 5000)
+          )
+        ]) as { stdout: string; stderr: string };
+        
+        return NextResponse.json({
+          success: true,
+          output: stdout || stderr || ''
+        });
+      } catch (error: any) {
+        lastError = error;
+        continue; // Try next Python path
+      }
     }
+
+    // If we get here, all Python paths failed
+    return NextResponse.json({
+      success: false,
+      output: lastError?.stderr || lastError?.message || 'Python not found'
+    });
   } catch (error) {
     console.error('Error in run route:', error);
     return NextResponse.json(
