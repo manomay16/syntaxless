@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "vercel-build": "apt-get update && apt-get install -y python3"
   },
   "dependencies": {
     "@babel/runtime": "latest",
@@ -75,6 +76,7 @@
     "tailwind-merge": "^2.5.5",
     "tailwindcss-animate": "^1.0.7",
     "vaul": "^0.9.6",
+    "vercel": "^42.3.0",
     "zod": "^3.24.1"
   },
   "devDependencies": {

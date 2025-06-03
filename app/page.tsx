@@ -100,7 +100,7 @@ export default function LandingPage() {
                   size="lg"
                   className="mt-4 font-heading text-base px-8 py-3 shadow-lg backdrop-blur-sm bg-primary/90 hover:bg-primary border border-primary/20"
                 >
-                  <Link href="/auth/sign-up">Get Started</Link>
+                  <Link href="/auth/sign-up">Get Started!</Link>
                 </Button>
               </div>
             </div>
