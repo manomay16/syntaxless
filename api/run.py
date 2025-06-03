@@ -22,14 +22,23 @@ class handler(BaseHTTPRequestHandler):
                 }).encode())
                 return
 
+            # Get inputs from the request
+            inputs = data.get('inputs', [])
+            input_index = [0]  # Use a list to maintain state between input() calls
+
             # Capture stdout and stderr
             stdout = io.StringIO()
             stderr = io.StringIO()
             
             try:
-                # Create a custom input function that returns empty string
+                # Create a custom input function that uses the provided inputs
                 def custom_input(prompt=""):
                     print(prompt, end='', file=stdout)
+                    if input_index[0] < len(inputs):
+                        value = inputs[input_index[0]]
+                        input_index[0] += 1
+                        print(value, file=stdout)  # Echo the input
+                        return value
                     return ""
                 
                 # Create a namespace with our custom input function

@@ -17,7 +17,10 @@ export async function POST(request: Request) {
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(body),
+      body: JSON.stringify({
+        code: body.code,
+        inputs: body.inputs || [] // Pass any inputs from the frontend
+      }),
     });
 
     const data = await response.json();
