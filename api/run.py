@@ -22,8 +22,13 @@ class handler(BaseHTTPRequestHandler):
                 }).encode())
                 return
 
-            # Get inputs from the request
-            inputs = data.get('inputs', [])
+            # Get inputs from the request (handle both input and inputs fields)
+            inputs = []
+            if 'input' in data:
+                inputs = data['input'].split('\n')
+            elif 'inputs' in data:
+                inputs = data['inputs']
+            
             input_index = [0]  # Use a list to maintain state between input() calls
 
             # Capture stdout and stderr
