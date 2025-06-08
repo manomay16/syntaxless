@@ -12,7 +12,6 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { PublicNavbar } from "@/components/public-navbar"
-import { GoogleIcon } from "@/components/icons"
 
 export default function SignUp() {
   const router = useRouter()
@@ -34,7 +33,7 @@ export default function SignUp() {
         email,
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          emailRedirectTo: `${window.location.origin}/auth/sign-in`,
         },
       })
 
@@ -44,33 +43,6 @@ export default function SignUp() {
       }
 
       setMessage("Check your email for the confirmation link")
-    } catch (error) {
-      setError("An unexpected error occurred")
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const handleGoogleSignIn = async () => {
-    setIsLoading(true)
-    setError(null)
-
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
-          queryParams: {
-            access_type: 'offline',
-            prompt: 'consent',
-          },
-          skipBrowserRedirect: false,
-        },
-      })
-
-      if (error) {
-        setError(error.message)
-      }
     } catch (error) {
       setError("An unexpected error occurred")
     } finally {
@@ -124,24 +96,6 @@ export default function SignUp() {
                 {isLoading ? "Creating account..." : "Sign Up"}
               </Button>
             </form>
-            <div className="relative my-4">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-background px-2 text-muted-foreground">Or continue with</span>
-              </div>
-            </div>
-            <Button
-              variant="outline"
-              type="button"
-              className="w-full"
-              onClick={handleGoogleSignIn}
-              disabled={isLoading}
-            >
-              <GoogleIcon className="mr-2 h-4 w-4" />
-              Google
-            </Button>
           </CardContent>
           <CardFooter className="flex justify-center">
             <p className="text-sm text-muted-foreground">
