@@ -34,7 +34,7 @@ export default function SignUp() {
         email,
         password,
         options: {
-          emailRedirectTo: `https://jxacnbgwcwlgbwkgcbll.supabase.co/auth/v1/callback`,
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
         },
       })
 
@@ -59,7 +59,7 @@ export default function SignUp() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `https://jxacnbgwcwlgbwkgcbll.supabase.co/auth/v1/callback`,
+          redirectTo: `${window.location.origin}/auth/callback`,
         },
       })
 
