@@ -33,7 +33,7 @@ export default function SignUp() {
         email,
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/sign-in`,
+          emailRedirectTo: `https://syntaxless-navneeth08ks-projects.vercel.app/auth/sign-in`,
         },
       })
 
