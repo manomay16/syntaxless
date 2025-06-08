@@ -51,7 +51,7 @@ export default function SignUp() {
     }
   }
 
-  const handleGoogleSignUp = async () => {
+  const handleGoogleSignIn = async () => {
     setIsLoading(true)
     setError(null)
 
@@ -60,6 +60,11 @@ export default function SignUp() {
         provider: "google",
         options: {
           redirectTo: `${window.location.origin}/auth/callback`,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
+          skipBrowserRedirect: false,
         },
       })
 
@@ -131,7 +136,7 @@ export default function SignUp() {
               variant="outline"
               type="button"
               className="w-full"
-              onClick={handleGoogleSignUp}
+              onClick={handleGoogleSignIn}
               disabled={isLoading}
             >
               <GoogleIcon className="mr-2 h-4 w-4" />
