@@ -34,7 +34,7 @@ export default function SignUp() {
         email,
         password,
         options: {
-          emailRedirectTo: `https://syntaxless-navneeth08ks-projects.vercel.app/auth/sign-in`,
+          emailRedirectTo: `https://jxacnbgwcwlgbwkgcbll.supabase.co/auth/v1/callback`,
         },
       })
 
@@ -59,7 +59,7 @@ export default function SignUp() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: `https://jxacnbgwcwlgbwkgcbll.supabase.co/auth/v1/callback`,
         },
       })
 
