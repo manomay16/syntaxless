@@ -32,9 +32,6 @@ export default function SignUp() {
       const { error } = await supabase.auth.signUp({
         email,
         password,
-        options: {
-          emailRedirectTo: `https://syntaxless-navneeth08ks-projects.vercel.app/auth/sign-in`,
-        },
       })
 
       if (error) {
@@ -42,7 +39,8 @@ export default function SignUp() {
         return
       }
 
-      setMessage("Check your email for the confirmation link")
+      setMessage("Account created successfully!")
+      router.push("/auth/sign-in")
     } catch (error) {
       setError("An unexpected error occurred")
     } finally {

@@ -38,8 +38,7 @@ export default function SignIn() {
       }
 
       if (data.session) {
-        // Force a hard navigation to ensure the middleware runs
-        window.location.href = "/dashboard"
+        router.push("/dashboard")
       }
     } catch (error) {
       setError("An unexpected error occurred")
