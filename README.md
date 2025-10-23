@@ -101,7 +101,6 @@ CREATE POLICY "Users can delete their own projects"
 - Supabase (Authentication and Database)
 - CodeMirror (Code Editor)
 - shadcn/ui (UI Components)
+- 21st.dev UI components
 
-## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
