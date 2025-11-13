@@ -11,15 +11,20 @@ export async function POST(request: Request) {
       );
     }
 
-    // Forward the request to the Python serverless function
-    const response = await fetch(`${process.env.VERCEL_URL || 'http://localhost:3000'}/api/run`, {
+    // Use local Python server for development, Vercel URL for production
+    const pythonServerUrl = process.env.NODE_ENV === 'development' 
+      ? 'http://localhost:3001' 
+      : (process.env.VERCEL_URL || 'http://localhost:3000');
+
+    const response = await fetch(`${pythonServerUrl}/api/run`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         code: body.code,
-        inputs: body.inputs || [] // Pass any inputs from the frontend
+        input: body.input || '',
+        inputs: body.inputs || []
       }),
     });
 

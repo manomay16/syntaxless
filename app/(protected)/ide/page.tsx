@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -9,11 +9,18 @@ import { PlusIcon, ArrowLeft } from "lucide-react"
 
 export default function DefaultIDEPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const isDemoMode = searchParams.get("demo") === "true"
   const supabase = createClient()
 
   // Check if user has any projects and redirect to the first one
   useEffect(() => {
     async function checkForProjects() {
+      // In demo mode, skip Supabase calls and show the demo interface
+      if (isDemoMode) {
+        return
+      }
+
       try {
         const { data, error } = await supabase
           .from("projects")
@@ -35,33 +42,56 @@ export default function DefaultIDEPage() {
     }
 
     checkForProjects()
-  }, [router, supabase])
+  }, [router, supabase, isDemoMode])
 
   const handleCreateProject = () => {
-    router.push("/dashboard?new=true")
+    if (isDemoMode) {
+      // In demo mode, create a demo project with a random ID
+      const demoProjectId = `demo-${Date.now()}`
+      router.push(`/ide/${demoProjectId}?demo=true`)
+    } else {
+      router.push("/dashboard?new=true")
+    }
+  }
+
+  const handleBackToDashboard = () => {
+    if (isDemoMode) {
+      router.push("/?demo=true")
+    } else {
+      router.push("/dashboard")
+    }
   }
 
   return (
     <div className="container py-12 flex items-center justify-center">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle className="text-2xl">No Project Selected</CardTitle>
-          <CardDescription>Select an existing project or create a new one to start coding</CardDescription>
+          <CardTitle className="text-2xl">
+            {isDemoMode ? "Demo Mode" : "No Project Selected"}
+          </CardTitle>
+          <CardDescription>
+            {isDemoMode 
+              ? "Create a demo project to start coding in plain English"
+              : "Select an existing project or create a new one to start coding"
+            }
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-muted-foreground">
-            You need to select a project to use the IDE. You can create a new project or go back to the dashboard to
-            select an existing one.
+            {isDemoMode 
+              ? "Click 'Create Demo Project' to start using the IDE with natural language coding."
+              : "You need to select a project to use the IDE. You can create a new project or go back to the dashboard to select an existing one."
+            }
           </p>
         </CardContent>
         <CardFooter className="flex flex-col space-y-2 sm:flex-row sm:space-x-2 sm:space-y-0">
-          <Button variant="outline" className="w-full sm:w-auto" onClick={() => router.push("/dashboard")}>
+          <Button variant="outline" className="w-full sm:w-auto" onClick={handleBackToDashboard}>
             <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Dashboard
+            {isDemoMode ? "Back to Home" : "Back to Dashboard"}
           </Button>
           <Button className="w-full sm:w-auto" onClick={handleCreateProject}>
             <PlusIcon className="mr-2 h-4 w-4" />
-            Create New Project
+            {isDemoMode ? "Create Demo Project" : "Create New Project"}
           </Button>
         </CardFooter>
       </Card>

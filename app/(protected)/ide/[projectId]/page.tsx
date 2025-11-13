@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from "react"
-import { useParams, useRouter } from "next/navigation"
+import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -35,6 +35,8 @@ const languages = [
 export default function IDEPage() {
   const { projectId } = useParams()
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const isDemoMode = searchParams.get("demo") === "true"
   const supabase = createClient()
   const { resolvedTheme } = useTheme()
   const isDarkTheme = resolvedTheme === "dark"
@@ -55,9 +57,20 @@ export default function IDEPage() {
 
   useEffect(() => {
     if (projectId) {
-      fetchProject(projectId as string)
+      if (isDemoMode) {
+        // In demo mode, create a demo project
+        setProject({
+          id: projectId as string,
+          name: "Demo Project",
+          code: "",
+          generated_code: ""
+        })
+        setLoading(false)
+      } else {
+        fetchProject(projectId as string)
+      }
     }
-  }, [projectId])
+  }, [projectId, isDemoMode])
 
   async function fetchProject(id: string) {
     try {
@@ -86,6 +99,13 @@ export default function IDEPage() {
 
   async function handleSave() {
     if (!project) return
+
+    // In demo mode, skip saving to database
+    if (isDemoMode) {
+      setSuccess("Demo mode - changes not saved")
+      setTimeout(() => setSuccess(null), 3000)
+      return
+    }
 
     setIsSaving(true)
     setError(null)

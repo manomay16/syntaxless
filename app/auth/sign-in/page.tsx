@@ -27,10 +27,16 @@ export default function SignIn() {
     setError(null)
 
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const signInPromise = supabase.auth.signInWithPassword({
         email,
         password,
       })
+      
+      const timeoutPromise = new Promise<never>((_, reject) => 
+        setTimeout(() => reject(new Error('Connection timeout')), 25000)
+      )
+
+      const { data, error } = await Promise.race([signInPromise, timeoutPromise]) as any
 
       if (error) {
         setError(error.message)
@@ -41,7 +47,7 @@ export default function SignIn() {
         router.push("/dashboard")
       }
     } catch (error) {
-      setError("An unexpected error occurred")
+      setError(error instanceof Error ? error.message : "An unexpected error occurred")
     } finally {
       setIsLoading(false)
     }
@@ -54,7 +60,7 @@ export default function SignIn() {
         <Card className="w-full max-w-md">
           <CardHeader>
             <CardTitle className="text-2xl">Sign In to Syntaxless</CardTitle>
-            <CardDescription>Enter your email and password to sign in to your account</CardDescription>
+            <CardDescription>Welcome back! Sign in to your account</CardDescription>
           </CardHeader>
           <CardContent>
             {error && (
@@ -75,12 +81,7 @@ export default function SignIn() {
                 />
               </div>
               <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="password">Password</Label>
-                  <Link href="/auth/reset-password" className="text-sm text-primary hover:underline">
-                    Forgot password?
-                  </Link>
-                </div>
+                <Label htmlFor="password">Password</Label>
                 <Input
                   id="password"
                   type="password"
@@ -94,11 +95,16 @@ export default function SignIn() {
               </Button>
             </form>
           </CardContent>
-          <CardFooter className="flex justify-center">
+          <CardFooter className="flex flex-col space-y-2">
             <p className="text-sm text-muted-foreground">
-              Don&apos;t have an account?{" "}
+              Don't have an account?{" "}
               <Link href="/auth/sign-up" className="text-primary hover:underline">
                 Sign up
+              </Link>
+            </p>
+            <p className="text-sm text-muted-foreground">
+              <Link href="/auth/reset-password" className="text-primary hover:underline">
+                Forgot your password?
               </Link>
             </p>
           </CardFooter>

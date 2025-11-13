@@ -34,57 +34,46 @@ Syntaxless is a web application that allows users to write code in plain English
    yarn install
    \`\`\`
 
-3. Set up environment variables:
+3. Set up Supabase database:
+   - Follow the detailed guide in [DATABASE_SETUP.md](./DATABASE_SETUP.md)
+   - Or quickly run the SQL migration in `supabase/migrations/001_create_projects_table.sql` in your Supabase SQL Editor
+
+4. Set up environment variables:
    Create a `.env.local` file in the root directory with the following variables:
    \`\`\`
    NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
    NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+   GEMINI_API_KEY=your_gemini_api_key
    \`\`\`
+   
+   Get your Supabase credentials from your project's Settings → API page.
 
-4. Run the development server:
+5. Run the development server:
    \`\`\`bash
    npm run dev
    # or
    yarn dev
    \`\`\`
 
-5. Open [http://localhost:3000](http://localhost:3000) in your browser to see the application.
+6. (Optional) For local code execution, start the Python server in a separate terminal:
+   \`\`\`bash
+   cd api
+   python run.py
+   \`\`\`
+
+7. Open [http://localhost:3000](http://localhost:3000) in your browser to see the application.
 
 ## Database Setup
 
-The application uses Supabase for authentication and data storage. You need to create the following table:
+📖 **For detailed database setup instructions, see [DATABASE_SETUP.md](./DATABASE_SETUP.md)**
 
-\`\`\`sql
-CREATE TABLE projects (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  name TEXT NOT NULL,
-  code TEXT,
-  generated_code TEXT,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
-);
+The application uses Supabase for authentication and data storage. The database schema includes:
 
--- Enable Row Level Security
-ALTER TABLE projects ENABLE ROW LEVEL SECURITY;
+- **`projects` table**: Stores user projects with natural language code and generated code
+- **Row Level Security (RLS)**: Ensures users can only access their own projects
+- **Automatic timestamps**: `created_at` and `updated_at` are automatically managed
 
--- Create policies
-CREATE POLICY "Users can view their own projects" 
-  ON projects FOR SELECT 
-  USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can insert their own projects" 
-  ON projects FOR INSERT 
-  WITH CHECK (auth.uid() = user_id);
-
-CREATE POLICY "Users can update their own projects" 
-  ON projects FOR UPDATE 
-  USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can delete their own projects" 
-  ON projects FOR DELETE 
-  USING (auth.uid() = user_id);
-\`\`\`
+Quick setup: Run the SQL migration file `supabase/migrations/001_create_projects_table.sql` in your Supabase SQL Editor.
 
 ## IDE Features
 
