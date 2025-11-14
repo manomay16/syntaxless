@@ -1,13 +1,13 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { PlusIcon, ArrowLeft } from "lucide-react"
 
-export default function DefaultIDEPage() {
+function DefaultIDEPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const isDemoMode = searchParams.get("demo") === "true"
@@ -96,5 +96,21 @@ export default function DefaultIDEPage() {
         </CardFooter>
       </Card>
     </div>
+  )
+}
+
+export default function DefaultIDEPage() {
+  return (
+    <Suspense fallback={
+      <div className="container py-12 flex items-center justify-center">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle className="text-2xl">Loading...</CardTitle>
+          </CardHeader>
+        </Card>
+      </div>
+    }>
+      <DefaultIDEPageContent />
+    </Suspense>
   )
 }

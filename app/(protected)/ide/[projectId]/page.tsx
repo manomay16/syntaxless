@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
@@ -32,7 +32,7 @@ const languages = [
   { value: "cpp", label: "C++", extension: cpp() },
 ]
 
-export default function IDEPage() {
+function IDEPageContent() {
   const { projectId } = useParams()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -528,5 +528,20 @@ const stdin = answers.join("\n");
         </Tabs>
       </div>
     </div>
+  )
+}
+
+export default function IDEPage() {
+  return (
+    <Suspense fallback={
+      <div className="h-screen flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-2xl font-semibold mb-2">Loading IDE...</h2>
+          <p className="text-muted-foreground">Please wait</p>
+        </div>
+      </div>
+    }>
+      <IDEPageContent />
+    </Suspense>
   )
 }
