@@ -11,7 +11,9 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Separator } from "@/components/ui/separator"
 import { PublicNavbar } from "@/components/public-navbar"
+import { GoogleIcon } from "@/components/icons"
 
 export default function SignUp() {
   const router = useRouter()
@@ -20,6 +22,7 @@ export default function SignUp() {
   const [password, setPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
 
   const handleSignUp = async (e: React.FormEvent) => {
@@ -73,10 +76,19 @@ export default function SignUp() {
         return
       }
 
-      setMessage("Account created successfully! Redirecting to sign in...")
-      setTimeout(() => {
-        router.push("/auth/sign-in")
-      }, 1500)
+      // Check if a session was created (email confirmation disabled)
+      if (result.data?.session) {
+        setMessage("Account created successfully! Redirecting to dashboard...")
+        setTimeout(() => {
+          router.push("/dashboard")
+        }, 1500)
+      } else {
+        // Email confirmation is required
+        setMessage("Account created successfully! Please check your email to confirm your account.")
+        setTimeout(() => {
+          router.push("/auth/sign-in")
+        }, 1500)
+      }
     } catch (error) {
       console.error("Sign up exception:", error)
       if (error instanceof Error) {
@@ -92,6 +104,30 @@ export default function SignUp() {
       }
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const handleGoogleSignUp = async () => {
+    setIsGoogleLoading(true)
+    setError(null)
+    setMessage(null)
+
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+        },
+      })
+
+      if (error) {
+        setError(error.message)
+        setIsGoogleLoading(false)
+      }
+      // Note: User will be redirected to Google, so we don't need to handle success here
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "An unexpected error occurred")
+      setIsGoogleLoading(false)
     }
   }
 
@@ -137,10 +173,34 @@ export default function SignUp() {
                   required
                 />
               </div>
-              <Button type="submit" className="w-full" disabled={isLoading}>
+              <Button type="submit" className="w-full" disabled={isLoading || isGoogleLoading}>
                 {isLoading ? "Creating account..." : "Sign Up"}
               </Button>
             </form>
+            <div className="relative my-6">
+              <div className="absolute inset-0 flex items-center">
+                <Separator />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-card px-2 text-muted-foreground">Or continue with</span>
+              </div>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              onClick={handleGoogleSignUp}
+              disabled={isLoading || isGoogleLoading}
+            >
+              {isGoogleLoading ? (
+                "Connecting..."
+              ) : (
+                <>
+                  <GoogleIcon className="mr-2 h-4 w-4" />
+                  Sign up with Google
+                </>
+              )}
+            </Button>
           </CardContent>
           <CardFooter className="flex justify-center">
             <p className="text-sm text-muted-foreground">

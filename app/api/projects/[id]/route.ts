@@ -12,8 +12,8 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
     }
 
     // Get the current user
-    const cookieStore = cookies()
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
+    const cookieStore = await cookies()
+    const supabase = createRouteHandlerClient({ cookies: () => cookieStore } as any)
 
     const {
       data: { user },

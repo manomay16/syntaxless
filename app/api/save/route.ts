@@ -12,7 +12,7 @@ export async function POST(request: Request) {
     }
 
     // Get the current user
-    const cookieStore = cookies()
+    const cookieStore = await cookies()
     const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
 
     const {
