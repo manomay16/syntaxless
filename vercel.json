@@ -12,7 +12,7 @@
   ],
   "routes": [
     {
-      "src": "/api/run",
+      "src": "/api/run-python",
       "dest": "/api/run.py"
     }
   ]
