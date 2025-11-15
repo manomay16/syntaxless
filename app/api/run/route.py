@@ -5,97 +5,80 @@ from io import StringIO
 import contextlib
 import traceback
 
-def handler(request):
-    try:
-        # Get the request body
-        body = request.get_json()
-        
-        # Validate request
-        if not body or 'code' not in body:
-            return {
-                'statusCode': 400,
-                'headers': {
-                    'Content-Type': 'application/json',
-                    'Access-Control-Allow-Origin': '*',
-                    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-                    'Access-Control-Allow-Headers': 'Content-Type'
-                },
-                'body': json.dumps({
-                    'success': False,
-                    'output': 'No code provided in request'
-                })
-            }
-
-        # Get code and input
-        code = body['code']
-        user_input = body.get('input', '')
-
-        # Create a safe execution environment
-        output = StringIO()
-        error = StringIO()
-
-        # Redirect stdout and stderr
-        with contextlib.redirect_stdout(output), contextlib.redirect_stderr(error):
-            try:
-                # Create a new namespace for execution
-                namespace = {}
-                
-                # Execute the code
-                exec(code, namespace)
-                
-                # If there's user input, handle it
-                if user_input:
-                    # Split input into lines
-                    input_lines = user_input.split('\n')
-                    input_index = 0
-                    
-                    # Override input() function
-                    def custom_input(prompt=''):
-                        nonlocal input_index
-                        if input_index < len(input_lines):
-                            value = input_lines[input_index]
-                            input_index += 1
-                            return value
-                        return ''
-                    
-                    # Replace built-in input with our custom one
-                    namespace['input'] = custom_input
-                    
-                    # Re-execute the code with input handling
-                    exec(code, namespace)
-                
-                success = True
-                output_text = output.getvalue()
-            except Exception as e:
-                success = False
-                output_text = f"{error.getvalue()}\n{traceback.format_exc()}"
-
-        # Send response
-        return {
-            'statusCode': 200,
-            'headers': {
-                'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': 'POST, OPTIONS',
-                'Access-Control-Allow-Headers': 'Content-Type'
-            },
-            'body': json.dumps({
-                'success': success,
-                'output': output_text
-            })
-        }
+class handler(BaseHTTPRequestHandler):
+    def do_POST(self):
+        try:
+            content_length = int(self.headers['Content-Length'])
+            post_data = self.rfile.read(content_length)
+            data = json.loads(post_data.decode('utf-8'))
             
-    except Exception as e:
-        return {
-            'statusCode': 500,
-            'headers': {
-                'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': 'POST, OPTIONS',
-                'Access-Control-Allow-Headers': 'Content-Type'
-            },
-            'body': json.dumps({
+            if not data.get('code'):
+                self.send_response(400)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    'success': False,
+                    'output': 'No code provided'
+                }).encode())
+                return
+
+            # Get inputs from the request (handle both input and inputs fields)
+            inputs = []
+            if 'input' in data:
+                inputs = data['input'].split('\n')
+            elif 'inputs' in data:
+                inputs = data['inputs']
+            
+            input_index = [0]  # Use a list to maintain state between input() calls
+
+            # Capture stdout and stderr
+            stdout = StringIO()
+            stderr = StringIO()
+            
+            try:
+                # Create a custom input function that uses the provided inputs
+                def custom_input(prompt=""):
+                    print(prompt, end='', file=stdout)
+                    if input_index[0] < len(inputs):
+                        value = inputs[input_index[0]]
+                        input_index[0] += 1
+                        print(value, file=stdout)  # Echo the input
+                        return value
+                    return ""
+                
+                # Create a namespace with our custom input function
+                namespace = {
+                    'input': custom_input,
+                    '__builtins__': __builtins__
+                }
+                
+                with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+                    # Execute the code with our custom namespace
+                    exec(data['code'], namespace)
+                
+                output = stdout.getvalue() or stderr.getvalue()
+                
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    'success': True,
+                    'output': output
+                }).encode())
+            except Exception as e:
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    'success': False,
+                    'output': str(e)
+                }).encode())
+                
+        except Exception as e:
+            self.send_response(500)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps({
                 'success': False,
-                'output': str(e)
-            })
-        }
+                'output': 'Internal server error'
+            }).encode())
