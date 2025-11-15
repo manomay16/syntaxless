@@ -14,5 +14,7 @@ export async function GET(request: NextRequest) {
   }
 
   // URL to redirect to after sign in process completes
-  return NextResponse.redirect(new URL("/dashboard", request.url))
+  // Use the origin from the request to ensure we use the correct domain (production or localhost)
+  const origin = requestUrl.origin
+  return NextResponse.redirect(new URL("/dashboard", origin))
 }

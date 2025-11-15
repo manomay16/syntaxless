@@ -61,10 +61,15 @@ export default function SignIn() {
     setError(null)
 
     try {
+      // Use window.location.origin which automatically works in both dev and production
+      const redirectTo = typeof window !== 'undefined' 
+        ? `${window.location.origin}/auth/callback`
+        : '/auth/callback'
+      
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo,
         },
       })
 

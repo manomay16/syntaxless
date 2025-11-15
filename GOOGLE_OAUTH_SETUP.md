@@ -100,17 +100,36 @@ Make sure this exact URL is added to your Google OAuth credentials' **Authorized
 
 ## Production Deployment
 
-When deploying to production:
+When deploying to production, you need to update your Google OAuth configuration:
 
-1. Update **Authorized JavaScript origins** in Google Cloud Console:
-   - Add your production domain: `https://yourdomain.com`
+### Step 1: Update Google Cloud Console
 
-2. The redirect URI stays the same (Supabase handles it):
+1. Go to [Google Cloud Console](https://console.cloud.google.com/) → **APIs & Services** → **Credentials**
+2. Click on your OAuth 2.0 Client ID
+3. Under **Authorized JavaScript origins**, add:
+   - Your production domain: `https://yourdomain.com` (replace with your actual domain)
+   - Keep `http://localhost:3000` for local development
+4. Under **Authorized redirect URIs**, make sure you have:
    - `https://YOUR_SUPABASE_PROJECT_ID.supabase.co/auth/v1/callback`
+   - (This is the Supabase callback URL - it stays the same for both dev and production)
+5. Click **Save**
 
-3. Make sure your production environment variables are set:
-   - `NEXT_PUBLIC_SUPABASE_URL`
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+### Step 2: Verify Supabase Configuration
+
+1. Go to your [Supabase Dashboard](https://app.supabase.com/)
+2. Navigate to **Authentication** → **URL Configuration**
+3. Make sure **Site URL** is set to your production domain: `https://yourdomain.com`
+4. Under **Redirect URLs**, add your production callback URL:
+   - `https://yourdomain.com/auth/callback`
+   - Keep `http://localhost:3000/auth/callback` for local development
+
+### Step 3: Set Production Environment Variables
+
+Make sure your production environment (Vercel, etc.) has these variables set:
+- `NEXT_PUBLIC_SUPABASE_URL` - Your Supabase project URL
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY` - Your Supabase anon key
+
+**Important:** The code automatically uses `window.location.origin`, so it will work with both `localhost:3000` (dev) and your production domain without any code changes!
 
 ## Additional Notes
 
