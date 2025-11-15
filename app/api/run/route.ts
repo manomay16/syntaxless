@@ -11,56 +11,87 @@ export async function POST(request: Request) {
       );
     }
 
-    // On Vercel, the vercel.json routes /api/run to the Python serverless function
-    // We need to call it using the Vercel URL or use the internal routing
-    const isVercel = process.env.VERCEL === '1';
+    // Determine execution environment
+    // Can be forced via environment variable, otherwise auto-detect
+    const forceMode = process.env.PYTHON_EXECUTION_MODE; // 'local' | 'vercel' | undefined (auto)
+    const isVercel = forceMode === 'vercel' || (forceMode !== 'local' && process.env.VERCEL === '1');
     
     if (isVercel) {
-      // On Vercel, the Python function is available at the same path
-      // The vercel.json routing handles this
-      // Use the Vercel URL if available, otherwise use relative path
-      const pythonUrl = process.env.VERCEL_URL 
-        ? `https://${process.env.VERCEL_URL}/api/run`
-        : '/api/run';
+      // Production/Vercel: Use Python serverless function
+      // The vercel.json routes /api/run to api/run.py
+      // We can call it directly since we're already in the Next.js route handler
+      // Vercel will handle the routing to the Python function
       
-      const response = await fetch(pythonUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          code: body.code,
-          input: body.input || '',
-          inputs: body.inputs || []
-        }),
-      });
+      // Try to call the Python function via internal routing
+      // In Vercel, this will be routed to the serverless function
+      const baseUrl = process.env.VERCEL_URL 
+        ? `https://${process.env.VERCEL_URL}`
+        : process.env.NEXT_PUBLIC_VERCEL_URL 
+        ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`
+        : '';
+      
+      const pythonUrl = baseUrl ? `${baseUrl}/api/run` : '/api/run';
+      
+      try {
+        const response = await fetch(pythonUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            code: body.code,
+            input: body.input || '',
+            inputs: body.inputs || []
+          }),
+        });
 
-      if (!response.ok) {
-        throw new Error(`Python serverless function returned ${response.status}`);
+        if (!response.ok) {
+          throw new Error(`Python serverless function returned ${response.status}`);
+        }
+
+        const data = await response.json();
+        return NextResponse.json(data);
+      } catch (fetchError: any) {
+        // If fetch fails, it might be a routing issue
+        console.error('Error calling Python function on Vercel:', fetchError);
+        throw new Error(`Failed to execute code: ${fetchError.message}`);
       }
-
-      const data = await response.json();
-      return NextResponse.json(data);
     } else {
-      // Local development - use local Python server
-      const response = await fetch('http://localhost:3001/api/run', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          code: body.code,
-          input: body.input || '',
-          inputs: body.inputs || []
-        }),
-      });
+      // Local development: Use local Python server
+      const localUrl = process.env.PYTHON_SERVER_URL || 'http://localhost:3001/api/run';
+      
+      try {
+        const response = await fetch(localUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            code: body.code,
+            input: body.input || '',
+            inputs: body.inputs || []
+          }),
+        });
 
-      if (!response.ok) {
-        throw new Error(`Local Python server returned ${response.status}`);
+        if (!response.ok) {
+          throw new Error(`Local Python server returned ${response.status}`);
+        }
+
+        const data = await response.json();
+        return NextResponse.json(data);
+      } catch (fetchError: any) {
+        // Provide helpful error message if local server isn't running
+        if (fetchError.code === 'ECONNREFUSED' || fetchError.message?.includes('ECONNREFUSED')) {
+          return NextResponse.json(
+            { 
+              success: false, 
+              output: 'Local Python server is not running. Please start it with: cd api && python run.py' 
+            },
+            { status: 503 }
+          );
+        }
+        throw fetchError;
       }
-
-      const data = await response.json();
-      return NextResponse.json(data);
     }
   } catch (error) {
     console.error('Error in run route:', error);

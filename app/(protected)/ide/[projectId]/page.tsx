@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Play, Save, Share, Download, MessageSquare, ArrowLeft, ToggleLeft, ToggleRight, Code2 } from "lucide-react"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import CodeMirror from "@uiw/react-codemirror"
 import { python } from "@codemirror/lang-python"
 import { javascript } from "@codemirror/lang-javascript"
@@ -23,6 +24,7 @@ interface Project {
   name: string
   code: string | null
   generated_code: string | null
+  coding_mode?: string | null
 }
 
 const languages = [
@@ -46,8 +48,10 @@ function IDEPageContent() {
   const [naturalLanguageCode, setNaturalLanguageCode] = useState("")
   const [generatedCode, setGeneratedCode] = useState("")
   const [selectedLanguage, setSelectedLanguage] = useState("python")
-  const [showNaturalLanguage, setShowNaturalLanguage] = useState(true)
-  const [isTranslating, setIsTranslating] = useState(false)    // ← added
+  const [codingMode, setCodingMode] = useState<"natural_language" | "code">("natural_language")
+  const [showAlternateView, setShowAlternateView] = useState(false) // For toggling between main and alternate view
+  const [isTranslating, setIsTranslating] = useState(false)
+  const [isExplaining, setIsExplaining] = useState(false)
   const [consoleOutput, setConsoleOutput] = useState("")
   const [clarifications, setClarifications] = useState<string[]>([])
   const [isSaving, setIsSaving] = useState(false)
@@ -72,23 +76,68 @@ function IDEPageContent() {
     }
   }, [projectId, isDemoMode])
 
+  // Clear clarifications when natural language code changes (user resolved them)
+  useEffect(() => {
+    if (codingMode === "natural_language" && naturalLanguageCode) {
+      // Clear clarifications when user edits NL code (they're resolving the issues)
+      setClarifications([])
+    }
+  }, [naturalLanguageCode, codingMode])
+
+  // NOTE: Removed auto-generation of NL explanation to reduce API calls
+  // Generation now only happens when user explicitly clicks to view alternate view
+
   async function fetchProject(id: string) {
     try {
+      // Try to fetch with coding_mode, fallback if column doesn't exist
       const { data, error } = await supabase
         .from("projects")
-        .select("id, name, code, generated_code")
+        .select("id, name, code, generated_code, coding_mode")
         .eq("id", id)
         .single()
 
       if (error) {
-        console.error("Error fetching project:", error)
-        setError("Failed to load project")
-        return
+        // If coding_mode column doesn't exist, try without it
+        if (error.message?.includes("coding_mode")) {
+          const { data: fallbackData, error: fallbackError } = await supabase
+            .from("projects")
+            .select("id, name, code, generated_code")
+            .eq("id", id)
+            .single()
+          
+          if (fallbackError || !fallbackData) {
+            console.error("Error fetching project:", fallbackError)
+            setError("Failed to load project")
+            return
+          }
+          
+          // Use fallback data with default mode
+          const projectData: Project = { ...fallbackData, coding_mode: "natural_language" }
+          setProject(projectData)
+          setCodingMode("natural_language")
+          setNaturalLanguageCode(fallbackData.code || "")
+          setGeneratedCode(fallbackData.generated_code || "")
+        } else {
+          console.error("Error fetching project:", error)
+          setError("Failed to load project")
+          return
+        }
+      } else if (data && typeof data === 'object' && 'id' in data) {
+        const projectData = data as unknown as Project
+        setProject(projectData)
+        const mode = (projectData.coding_mode as "natural_language" | "code") || "natural_language"
+        setCodingMode(mode)
+        
+        // Load content based on mode
+        if (mode === "natural_language") {
+          setNaturalLanguageCode(projectData.code || "")
+          setGeneratedCode(projectData.generated_code || "")
+        } else {
+          // Code mode: generated_code is the source, code is the explanation
+          setGeneratedCode(projectData.generated_code || "")
+          setNaturalLanguageCode(projectData.code || "")
+        }
       }
-
-      setProject(data)
-      setNaturalLanguageCode(data.code || "")
-      setGeneratedCode(data.generated_code || "")
     } catch (error) {
       console.error("Error fetching project:", error)
       setError("Failed to load project")
@@ -112,19 +161,50 @@ function IDEPageContent() {
     setSuccess(null)
 
     try {
+      // Save based on current mode
+      const updateData: any = {
+        coding_mode: codingMode,
+        updated_at: new Date().toISOString(),
+      }
+
+      if (codingMode === "natural_language") {
+        // NL mode: code is NL, generated_code is programming code
+        updateData.code = naturalLanguageCode
+        updateData.generated_code = generatedCode
+      } else {
+        // Code mode: generated_code is programming code, code is NL explanation
+        updateData.generated_code = generatedCode
+        updateData.code = naturalLanguageCode
+      }
+
       const { error } = await supabase
         .from("projects")
-        .update({
-          code: naturalLanguageCode,
-          generated_code: generatedCode,
-          updated_at: new Date().toISOString(),
-        })
+        .update(updateData)
         .eq("id", project.id)
 
       if (error) {
-        console.error("Error saving project:", error)
-        setError("Failed to save project")
-        return
+        // If coding_mode column doesn't exist, try saving without it
+        if (error.message?.includes("coding_mode")) {
+          const { code, generated_code, ...dataWithoutMode } = updateData
+          const fallbackData = codingMode === "natural_language" 
+            ? { code, generated_code }
+            : { generated_code, code }
+          
+          const { error: fallbackError } = await supabase
+            .from("projects")
+            .update(fallbackData)
+            .eq("id", project.id)
+          
+          if (fallbackError) {
+            console.error("Error saving project:", fallbackError)
+            setError("Failed to save project. Please run the database migration to enable mode switching.")
+            return
+          }
+        } else {
+          console.error("Error saving project:", error)
+          setError("Failed to save project")
+          return
+        }
       }
 
       setSuccess("Project saved successfully")
@@ -141,67 +221,74 @@ function IDEPageContent() {
     setIsRunning(true);
     setError(null);
     setConsoleOutput("");
-    setClarifications([]);
+    setClarifications([]); // Clear old clarifications - we'll check for new ones
 
     try {
-      // 1️⃣ Translate NL → code
-      const translateRes = await fetch("/api/translate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          code: naturalLanguageCode,
-          projectId: project?.id,
-          language: selectedLanguage,
-        }),
-      });
-      if (!translateRes.ok) throw new Error("Translation failed");
-      const { generatedCode: newCode, clarifications: newClars } = await translateRes.json();
-      setGeneratedCode(newCode);
-      if (newClars?.length) setClarifications(newClars);
-      // ───────────────────────────────────────────────────────────────────
-  // ⚡️ Cleanup prompt‐strings so they don't echo in the console:
-  // Replace input("…") with bare input(), since we already popped those via window.prompt()
-  const cleanedCode = newCode.replace(
-    /input\s*\(\s*(['"`]).*?\1\s*\)/g,
-    "input()"
-  );
-  // Use cleanedCode from here on out
-  const processedCode = cleanedCode;
-  setGeneratedCode(processedCode);
-  // ───────────────────────────────────────────────────────────────────
+      let codeToRun = "";
+      
+      if (codingMode === "natural_language") {
+        // 1️⃣ Translate NL → code
+        const translateRes = await fetch("/api/translate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            code: naturalLanguageCode,
+            projectId: project?.id,
+            language: selectedLanguage,
+          }),
+        });
+        if (!translateRes.ok) throw new Error("Translation failed");
+        const { generatedCode: newCode, clarifications: newClars } = await translateRes.json();
+        
+        // Check for clarifications - don't run if they exist
+        if (newClars?.length > 0) {
+          setClarifications(newClars);
+          setError("Please resolve all clarifications before running your code.");
+          setIsRunning(false);
+          return;
+        }
+        
+        setGeneratedCode(newCode);
+        codeToRun = newCode;
+      } else {
+        // Code mode: use the code directly
+        codeToRun = generatedCode;
+      }
+      // 2️⃣ Cleanup prompt‐strings so they don't echo in the console
+      const cleanedCode = codeToRun.replace(
+        /input\s*\(\s*(['"`]).*?\1\s*\)/g,
+        "input()"
+      );
 
-     // 2️⃣ Detect all input(...) calls (with or without prompt text)
-const inputPrompts: string[] = [];
-const inputRe = /input\s*\(\s*(?:(['"`])(.*?)\1)?\s*\)/g;
-let m: RegExpExecArray | null;
-while ((m = inputRe.exec(newCode)) !== null) {
-  // m[2] is the string inside quotes, if provided
-  inputPrompts.push(m[2] ?? "");
-}
+      // 3️⃣ Detect all input(...) calls
+      const inputPrompts: string[] = [];
+      const inputRe = /input\s*\(\s*(?:(['"`])(.*?)\1)?\s*\)/g;
+      let m: RegExpExecArray | null;
+      while ((m = inputRe.exec(codeToRun)) !== null) {
+        inputPrompts.push(m[2] ?? "");
+      }
 
-// 3️⃣ Prompt the user for each input() call
-const answers: string[] = [];
-for (const promptText of inputPrompts) {
-  // fallback to a generic label if no prompt text was given
-  const question = promptText.trim() || "Enter program input:";
-  const ans = window.prompt(question, "");
-  if (ans === null) {
-    setError("Run cancelled by user");
-    setIsRunning(false);
-    return;
-  }
-  answers.push(ans);
-}
+      // 4️⃣ Prompt the user for each input() call
+      const answers: string[] = [];
+      for (const promptText of inputPrompts) {
+        const question = promptText.trim() || "Enter program input:";
+        const ans = window.prompt(question, "");
+        if (ans === null) {
+          setError("Run cancelled by user");
+          setIsRunning(false);
+          return;
+        }
+        answers.push(ans);
+      }
 
-// 4️⃣ Bundle all answers into one stdin string
-const stdin = answers.join("\n");
+      const stdin = answers.join("\n");
 
-      // 4️⃣ Execute with stdin
+      // 5️⃣ Execute with stdin
       const runRes = await fetch("/api/run", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          code: newCode,
+          code: cleanedCode,
           language: selectedLanguage,
           input: stdin,
         }),
@@ -264,34 +351,111 @@ const stdin = answers.join("\n");
       })
   }
 
-  // ─── NEW: toggle + re-translate on every "Show Generated Code" click ───
-  async function handleToggle() {
-    if (showNaturalLanguage) {
-      setIsTranslating(true)
-      setError(null)
-      try {
-        const res = await fetch("/api/translate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            code: naturalLanguageCode,
-            projectId,
-            language: selectedLanguage,
-          }),
-        })
-        if (!res.ok) throw new Error("Translation failed")
-        const { generatedCode: newCode } = await res.json()
-        setGeneratedCode(newCode)
-      } catch (err: any) {
-        console.error(err)
-        setError(err.message || "Translation failed")
-      } finally {
-        setIsTranslating(false)
+  // Handle mode switching with state preservation
+  async function handleModeSwitch(newMode: "natural_language" | "code") {
+    if (newMode === codingMode) return // Already in this mode
+
+    setError(null)
+    
+    if (newMode === "code") {
+      // Switching to Code mode: generate code from NL if needed
+      // Only generate if we don't have code yet (don't regenerate on every switch)
+      if (!generatedCode && naturalLanguageCode) {
+        setIsTranslating(true)
+        try {
+          const res = await fetch("/api/translate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              code: naturalLanguageCode,
+              projectId,
+              language: selectedLanguage,
+            }),
+          })
+          if (!res.ok) throw new Error("Translation failed")
+          const { generatedCode: newCode } = await res.json()
+          setGeneratedCode(newCode)
+        } catch (err: any) {
+          console.error(err)
+          setError(err.message || "Translation failed")
+          return
+        } finally {
+          setIsTranslating(false)
+        }
       }
     }
-    setShowNaturalLanguage(v => !v)
+    // NOTE: Removed auto-generation of NL when switching to NL mode
+    // NL will only be generated when user explicitly clicks to view it
+    
+    setCodingMode(newMode)
+    setShowAlternateView(false) // Reset view toggle
   }
-  // ────────────────────────────────────────────────────────────────
+
+  // Explain code in natural language (line-by-line)
+  // Preserves existing natural language style if available
+  async function handleExplainCode() {
+    if (!generatedCode) return
+    
+    setIsExplaining(true)
+    setError(null)
+    try {
+      const res = await fetch("/api/explain", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code: generatedCode,
+          language: selectedLanguage,
+          existingNaturalLanguage: naturalLanguageCode, // Pass existing NL to preserve style
+        }),
+      })
+      if (!res.ok) throw new Error("Explanation failed")
+      const { naturalLanguage } = await res.json()
+      setNaturalLanguageCode(naturalLanguage)
+    } catch (err: any) {
+      console.error(err)
+      setError(err.message || "Failed to explain code")
+    } finally {
+      setIsExplaining(false)
+    }
+  }
+
+  // Toggle between main view and alternate view
+  async function handleToggleView() {
+    if (codingMode === "natural_language") {
+      // NL mode: toggle to show generated code
+      if (!showAlternateView && !generatedCode && naturalLanguageCode) {
+        setIsTranslating(true)
+        setError(null)
+        try {
+          const res = await fetch("/api/translate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              code: naturalLanguageCode,
+              projectId,
+              language: selectedLanguage,
+            }),
+          })
+          if (!res.ok) throw new Error("Translation failed")
+          const { generatedCode: newCode } = await res.json()
+          setGeneratedCode(newCode)
+        } catch (err: any) {
+          console.error(err)
+          setError(err.message || "Translation failed")
+          return
+        } finally {
+          setIsTranslating(false)
+        }
+      }
+    } else {
+      // Code mode: toggle to show NL explanation
+      // Always regenerate to ensure it matches current code
+      if (!showAlternateView && generatedCode && generatedCode.trim()) {
+        await handleExplainCode()
+      }
+    }
+    setShowAlternateView(v => !v)
+  }
 
   if (loading) {
     return (
@@ -326,6 +490,22 @@ const stdin = answers.join("\n");
       <div className="flex items-center justify-between border-b p-2">
         <div className="flex items-center gap-4">
           <h1 className="text-lg font-semibold">{project?.name || "Untitled Project"}</h1>
+          {/* Mode Selection */}
+          <ToggleGroup 
+            type="single" 
+            value={codingMode} 
+            onValueChange={(value) => {
+              if (value) handleModeSwitch(value as "natural_language" | "code")
+            }}
+            className="border rounded-md"
+          >
+            <ToggleGroupItem value="natural_language" aria-label="Natural Language">
+              Natural Language
+            </ToggleGroupItem>
+            <ToggleGroupItem value="code" aria-label="Code">
+              Code
+            </ToggleGroupItem>
+          </ToggleGroup>
           {/* Language Selection */}
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium">Language:</span>
@@ -347,13 +527,18 @@ const stdin = answers.join("\n");
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="outline" size="sm" onClick={handleRun} disabled={isRunning || !naturalLanguageCode}>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleRun} 
+                  disabled={isRunning || (codingMode === "natural_language" && !naturalLanguageCode) || (codingMode === "code" && !generatedCode)}
+                >
                   <Play className="h-4 w-4 mr-2" />
                   Run
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
-                <p>Translate and run your code</p>
+                <p>{codingMode === "natural_language" ? "Translate and run your code" : "Run your code"}</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -417,54 +602,103 @@ const stdin = answers.join("\n");
         <div className="flex items-center justify-between border-b p-2 bg-muted/30">
           <div className="flex items-center gap-2">
             <span className="font-medium">
-              {showNaturalLanguage ? "Natural Language" : `Generated ${currentLanguage?.label} Code`}
+              {codingMode === "natural_language" 
+                ? (showAlternateView ? `Generated ${currentLanguage?.label} Code` : "Natural Language")
+                : (showAlternateView ? "Natural Language Explanation" : `${currentLanguage?.label} Code`)
+              }
             </span>
+            {codingMode === "code" && isExplaining && (
+              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-primary"></div>
+                Updating explanation...
+              </span>
+            )}
           </div>
           <Button
             variant="ghost"
             size="sm"
-            onClick={handleToggle}
-            disabled={isTranslating}
+            onClick={handleToggleView}
+            disabled={isTranslating || isExplaining}
             className="flex items-center gap-2"
           >
-            {showNaturalLanguage ? (
-              <>
-                <Code2 className="h-4 w-4" />
-                Show Generated Code
-                <ToggleRight className="h-4 w-4" />
-              </>
+            {codingMode === "natural_language" ? (
+              showAlternateView ? (
+                <>
+                  <ToggleLeft className="h-4 w-4" />
+                  Show Natural Language
+                  <MessageSquare className="h-4 w-4" />
+                </>
+              ) : (
+                <>
+                  <Code2 className="h-4 w-4" />
+                  Show Generated Code
+                  <ToggleRight className="h-4 w-4" />
+                </>
+              )
             ) : (
-              <>
-                <ToggleLeft className="h-4 w-4" />
-                Show Natural Language
-                <MessageSquare className="h-4 w-4" />
-              </>
+              showAlternateView ? (
+                <>
+                  <ToggleLeft className="h-4 w-4" />
+                  Show Code
+                  <Code2 className="h-4 w-4" />
+                </>
+              ) : (
+                <>
+                  <MessageSquare className="h-4 w-4" />
+                  Show Natural Language Explanation
+                  <ToggleRight className="h-4 w-4" />
+                </>
+              )
             )}
           </Button>
         </div>
 
         {/* Code Editor */}
         <div className="flex-1 overflow-auto">
-          {showNaturalLanguage ? (
-            <CodeMirror
-              value={naturalLanguageCode}
-              onChange={setNaturalLanguageCode}
-              height="100%"
-              theme={isDarkTheme ? vscodeDark : xcodeLight}
-              placeholder="Write instructions in plain English…"
-              basicSetup={{ lineNumbers: true, highlightActiveLine: true }}
-              className="text-foreground h-full"
-            />
+          {codingMode === "natural_language" ? (
+            showAlternateView ? (
+              <CodeMirror
+                value={generatedCode}
+                height="100%"
+                theme={isDarkTheme ? vscodeDark : xcodeLight}
+                extensions={currentLanguage ? [currentLanguage.extension] : []}
+                readOnly
+                basicSetup={{ lineNumbers: true, highlightActiveLine: false }}
+                className="text-foreground h-full"
+              />
+            ) : (
+              <CodeMirror
+                value={naturalLanguageCode}
+                onChange={setNaturalLanguageCode}
+                height="100%"
+                theme={isDarkTheme ? vscodeDark : xcodeLight}
+                placeholder="Write instructions in plain English…"
+                basicSetup={{ lineNumbers: true, highlightActiveLine: true }}
+                className="text-foreground h-full"
+              />
+            )
           ) : (
-            <CodeMirror
-              value={generatedCode}
-              height="100%"
-              theme={isDarkTheme ? vscodeDark : xcodeLight}
-              extensions={currentLanguage ? [currentLanguage.extension] : []}
-              readOnly
-              basicSetup={{ lineNumbers: true, highlightActiveLine: false }}
-              className="text-foreground h-full"
-            />
+            showAlternateView ? (
+              <CodeMirror
+                value={naturalLanguageCode}
+                height="100%"
+                theme={isDarkTheme ? vscodeDark : xcodeLight}
+                readOnly
+                basicSetup={{ lineNumbers: true, highlightActiveLine: false }}
+                className="text-foreground h-full"
+              />
+            ) : (
+              <CodeMirror
+                value={generatedCode}
+                onChange={setGeneratedCode}
+                height="100%"
+                theme={isDarkTheme ? vscodeDark : xcodeLight}
+                extensions={currentLanguage ? [currentLanguage.extension] : []}
+                placeholder={`Write ${currentLanguage?.label} code here...`}
+                basicSetup={{ lineNumbers: true, highlightActiveLine: true }}
+                className="text-foreground h-full"
+              />
+            )
           )}
         </div>
       </div>

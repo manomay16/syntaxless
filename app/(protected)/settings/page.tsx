@@ -21,7 +21,6 @@ export default function SettingsPage() {
   const [displayName, setDisplayName] = useState("")
   const [email, setEmail] = useState("")
   const [targetLanguage, setTargetLanguage] = useState("python")
-  const [apiKey, setApiKey] = useState("")
   const [isDarkMode, setIsDarkMode] = useState(false)
   const [loading, setLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
@@ -53,7 +52,6 @@ export default function SettingsPage() {
         // In a real app, you would load user preferences from a database
         // For now, we'll just use some defaults
         setTargetLanguage("python")
-        setApiKey("sk-xxxxxxxxxxxxxxxxxxxx")
       } catch (error) {
         console.error("Error loading user profile:", error)
       } finally {
@@ -136,7 +134,6 @@ export default function SettingsPage() {
         <TabsList>
           <TabsTrigger value="profile">Profile</TabsTrigger>
           <TabsTrigger value="appearance">Appearance</TabsTrigger>
-          <TabsTrigger value="api">API</TabsTrigger>
         </TabsList>
 
         <TabsContent value="profile" className="space-y-4">
@@ -198,45 +195,6 @@ export default function SettingsPage() {
                 <Switch id="dark-mode" checked={isDarkMode} onCheckedChange={handleThemeChange} />
               </div>
             </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="api" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>API Settings</CardTitle>
-              <CardDescription>Manage your API keys and settings.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="api-key">API Key</Label>
-                <div className="flex space-x-2">
-                  <Input
-                    id="api-key"
-                    type="password"
-                    value={apiKey}
-                    onChange={(e) => setApiKey(e.target.value)}
-                    placeholder="Enter your API key"
-                  />
-                  <Button variant="outline" onClick={() => setApiKey("")}>
-                    Reset
-                  </Button>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  Your API key is used to authenticate requests to the Syntaxless API.
-                </p>
-              </div>
-            </CardContent>
-            <CardFooter>
-              <Button
-                onClick={() => {
-                  setSuccess("API settings saved successfully")
-                  setTimeout(() => setSuccess(null), 3000)
-                }}
-              >
-                Save API Settings
-              </Button>
-            </CardFooter>
           </Card>
         </TabsContent>
       </Tabs>
