@@ -19,18 +19,19 @@ export async function POST(request: Request) {
     if (isVercel) {
       // Production/Vercel: Use Python serverless function
       // The vercel.json routes /api/run to api/run.py
-      // We can call it directly since we're already in the Next.js route handler
-      // Vercel will handle the routing to the Python function
+      // We need to call it using the full URL to avoid Next.js route handler interception
       
-      // Try to call the Python function via internal routing
-      // In Vercel, this will be routed to the serverless function
+      // Get the production URL - use VERCEL_URL for preview deployments, or NEXT_PUBLIC_VERCEL_URL for production
       const baseUrl = process.env.VERCEL_URL 
         ? `https://${process.env.VERCEL_URL}`
         : process.env.NEXT_PUBLIC_VERCEL_URL 
         ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`
+        : process.env.VERCEL_PROJECT_PRODUCTION_URL
+        ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
         : '';
       
-      const pythonUrl = baseUrl ? `${baseUrl}/api/run` : '/api/run';
+      // Use the internal Python function path to avoid Next.js route handler interception
+      const pythonUrl = baseUrl ? `${baseUrl}/api/run-python` : '/api/run-python';
       
       try {
         const response = await fetch(pythonUrl, {
@@ -43,17 +44,31 @@ export async function POST(request: Request) {
             input: body.input || '',
             inputs: body.inputs || []
           }),
+          // Add timeout to prevent hanging
+          signal: AbortSignal.timeout(15000), // 15 second timeout
         });
 
         if (!response.ok) {
-          throw new Error(`Python serverless function returned ${response.status}`);
+          const errorText = await response.text().catch(() => 'Unknown error');
+          throw new Error(`Python serverless function returned ${response.status}: ${errorText}`);
         }
 
-        const data = await response.json();
+        const responseText = await response.text();
+        let data;
+        try {
+          data = JSON.parse(responseText);
+        } catch (parseError: any) {
+          console.error('Failed to parse Python function response:', parseError);
+          console.error('Response text:', responseText.substring(0, 500));
+          throw new Error(`Invalid JSON response from Python function: ${parseError.message}. Response: ${responseText.substring(0, 200)}`);
+        }
         return NextResponse.json(data);
       } catch (fetchError: any) {
         // If fetch fails, it might be a routing issue
         console.error('Error calling Python function on Vercel:', fetchError);
+        if (fetchError.name === 'AbortError' || fetchError.name === 'TimeoutError') {
+          throw new Error('Code execution timed out after 15 seconds');
+        }
         throw new Error(`Failed to execute code: ${fetchError.message}`);
       }
     } else {
@@ -77,7 +92,15 @@ export async function POST(request: Request) {
           throw new Error(`Local Python server returned ${response.status}`);
         }
 
-        const data = await response.json();
+        const responseText = await response.text();
+        let data;
+        try {
+          data = JSON.parse(responseText);
+        } catch (parseError: any) {
+          console.error('Failed to parse local Python server response:', parseError);
+          console.error('Response text:', responseText);
+          throw new Error(`Invalid JSON response from local server: ${parseError.message}`);
+        }
         return NextResponse.json(data);
       } catch (fetchError: any) {
         // Provide helpful error message if local server isn't running

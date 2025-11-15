@@ -68,28 +68,50 @@ ${nlCode}
       }
     });
 
-    // Call Gemini to generate the code
-    const result = await model.generateContent(prompt);
-    const aiResponse = await result.response;
-    // ③ Read its body as text (must await!)
-    let raw = (await aiResponse.text()).trim();
+    // Call Gemini to generate the code with timeout
+    let raw: string;
+    try {
+      const result = await model.generateContent(prompt);
+      const aiResponse = await result.response;
+      // Read its body as text (must await!)
+      raw = (await aiResponse.text()).trim();
+    } catch (apiError: any) {
+      console.error("Gemini API error:", apiError);
+      throw new Error(`Gemini API error: ${apiError.message || 'Failed to generate code'}`);
+    }
 
-    // ④ Remove any triple-backtick fences or leading "```json"
-    //     so we end up with just the JSON object
+    // Remove any triple-backtick fences or leading "```json"
+    // so we end up with just the JSON object
     if (raw.startsWith("```")) {
       // strip opening fence and optional language hint
       raw = raw.replace(/^```(?:json)?\s*/, "");
       // strip closing fence
       raw = raw.replace(/```$/, "").trim();
     }
-    const content = raw;
+    
+    // Try to extract JSON if it's embedded in text
+    const jsonMatch = raw.match(/\{[\s\S]*"generatedCode"[\s\S]*"clarifications"[\s\S]*\}/);
+    const content = jsonMatch ? jsonMatch[0] : raw;
 
     let parsed: { generatedCode: string; clarifications: string[] };
     try {
       parsed = JSON.parse(content);
-    } catch (e) {
+      
+      // Validate the parsed object
+      if (!parsed.generatedCode) {
+        throw new Error("Response missing 'generatedCode' field");
+      }
+      if (!Array.isArray(parsed.clarifications)) {
+        parsed.clarifications = [];
+      }
+    } catch (parseError: any) {
+      console.error("JSON parse error:", parseError);
+      console.error("Raw response:", raw);
       // fallback: if parsing fails, treat everything as code
-      parsed = { generatedCode: content, clarifications: [] };
+      parsed = { 
+        generatedCode: content || raw || "// Translation failed - invalid response", 
+        clarifications: [] 
+      };
     }
 
     // **Return** only the fields you actually need
@@ -99,8 +121,13 @@ ${nlCode}
       clarifications: parsed.clarifications,
     });
   } catch (e: any) {
+    console.error("Translation route error:", e);
     return NextResponse.json(
-      { success: false, error: e.message },
+      { 
+        success: false, 
+        error: e.message || "Translation failed",
+        details: process.env.NODE_ENV === 'development' ? e.stack : undefined
+      },
       { status: 500 }
     );
   }

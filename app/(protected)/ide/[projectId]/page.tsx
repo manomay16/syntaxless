@@ -237,8 +237,22 @@ function IDEPageContent() {
             language: selectedLanguage,
           }),
         });
-        if (!translateRes.ok) throw new Error("Translation failed");
-        const { generatedCode: newCode, clarifications: newClars } = await translateRes.json();
+        
+        if (!translateRes.ok) {
+          const errorData = await translateRes.json().catch(() => ({ error: "Translation failed" }));
+          throw new Error(errorData.error || `Translation failed with status ${translateRes.status}`);
+        }
+        
+        const translateData = await translateRes.json().catch((parseError) => {
+          console.error("Failed to parse translation response:", parseError);
+          throw new Error("Invalid response from translation service");
+        });
+        
+        const { generatedCode: newCode, clarifications: newClars } = translateData;
+        
+        if (!newCode) {
+          throw new Error("Translation returned no code");
+        }
         
         // Check for clarifications - don't run if they exist
         if (newClars?.length > 0) {
@@ -293,7 +307,21 @@ function IDEPageContent() {
           input: stdin,
         }),
       });
-      const runData = await runRes.json();
+      
+      let runData;
+      try {
+        const responseText = await runRes.text();
+        try {
+          runData = JSON.parse(responseText);
+        } catch (parseError) {
+          console.error("Failed to parse run response:", parseError);
+          console.error("Response text:", responseText);
+          throw new Error(`Invalid response from code execution: ${responseText.substring(0, 200)}`);
+        }
+      } catch (fetchError: any) {
+        throw new Error(fetchError.message || "Failed to execute code");
+      }
+      
       if (runRes.ok && runData.success) {
         setConsoleOutput(runData.output);
       } else {
