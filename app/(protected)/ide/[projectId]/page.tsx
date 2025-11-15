@@ -311,21 +311,29 @@ function IDEPageContent() {
       let runData;
       try {
         const responseText = await runRes.text();
+        console.log("Run response status:", runRes.status);
+        console.log("Run response text:", responseText);
+        
+        if (!responseText || responseText.trim() === "") {
+          throw new Error("Empty response from code execution server");
+        }
+        
         try {
           runData = JSON.parse(responseText);
         } catch (parseError) {
           console.error("Failed to parse run response:", parseError);
-          console.error("Response text:", responseText);
-          throw new Error(`Invalid response from code execution: ${responseText.substring(0, 200)}`);
+          console.error("Response text (full):", responseText);
+          throw new Error(`Invalid JSON response from code execution. Response: ${responseText.substring(0, 500)}`);
         }
       } catch (fetchError: any) {
+        console.error("Error fetching/parsing run response:", fetchError);
         throw new Error(fetchError.message || "Failed to execute code");
       }
       
-      if (runRes.ok && runData.success) {
-        setConsoleOutput(runData.output);
+      if (runRes.ok && runData && runData.success) {
+        setConsoleOutput(runData.output || "");
       } else {
-        setConsoleOutput(runData.output ?? runData.error ?? "Execution error");
+        setConsoleOutput(runData?.output ?? runData?.error ?? "Execution error");
       }
 
       // 5️⃣ Auto‐save

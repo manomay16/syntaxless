@@ -1,19 +1,27 @@
+from http.server import BaseHTTPRequestHandler, HTTPServer
 import json
 import sys
 import io
 from contextlib import redirect_stdout, redirect_stderr
 import os
 import threading
-from http.server import BaseHTTPRequestHandler, HTTPServer
 
 # Vercel serverless function handler
 def handler(request):
     try:
-        # Get the request body
-        body = request.get_json()
+        # Get the request body - Vercel passes it as a dict with 'body' key
+        if isinstance(request, dict):
+            body_str = request.get('body', '{}')
+            if isinstance(body_str, str):
+                data = json.loads(body_str)
+            else:
+                data = body_str
+        elif hasattr(request, 'get_json'):
+            data = request.get_json()
+        else:
+            data = request.json() if hasattr(request, 'json') else {}
         
-        # Validate request
-        if not body or 'code' not in body:
+        if not data.get('code'):
             return {
                 'statusCode': 400,
                 'headers': {
@@ -24,27 +32,25 @@ def handler(request):
                 },
                 'body': json.dumps({
                     'success': False,
-                    'output': 'No code provided in request'
+                    'output': 'No code provided'
                 })
             }
 
-        # Get code and inputs
-        code = body['code']
+        # Get inputs from the request (handle both input and inputs fields)
         inputs = []
-        if 'input' in body:
-            inputs = body['input'].split('\n')
-        elif 'inputs' in body:
-            inputs = body['inputs']
+        if 'input' in data:
+            inputs = data['input'].split('\n')
+        elif 'inputs' in data:
+            inputs = data['inputs']
         
         timeout_seconds = 10  # 10 second timeout for infinite loop detection
         
         # Use threading to implement timeout
         execution_result = {'completed': False, 'output': '', 'error': None}
+        input_index = [0]  # Use a list to maintain state between input() calls
         
         def execute_code():
             try:
-                input_index = [0]  # Use a list to maintain state between input() calls
-                
                 # Capture stdout and stderr
                 stdout = io.StringIO()
                 stderr = io.StringIO()
@@ -67,7 +73,7 @@ def handler(request):
                 
                 with redirect_stdout(stdout), redirect_stderr(stderr):
                     # Execute the code with our custom namespace
-                    exec(code, namespace)
+                    exec(data['code'], namespace)
                 
                 execution_result['completed'] = True
                 execution_result['output'] = stdout.getvalue() or stderr.getvalue()
@@ -114,27 +120,34 @@ def handler(request):
         
         # Execution completed (or errored)
         if execution_result['error']:
-            success = False
-            output_text = execution_result['error']
+            return {
+                'statusCode': 200,
+                'headers': {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*',
+                    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+                    'Access-Control-Allow-Headers': 'Content-Type'
+                },
+                'body': json.dumps({
+                    'success': False,
+                    'output': execution_result['error']
+                })
+            }
         else:
-            success = True
-            output_text = execution_result['output']
-
-        # Send response
-        return {
-            'statusCode': 200,
-            'headers': {
-                'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': 'POST, OPTIONS',
-                'Access-Control-Allow-Headers': 'Content-Type'
-            },
-            'body': json.dumps({
-                'success': success,
-                'output': output_text
-            })
-        }
-            
+            return {
+                'statusCode': 200,
+                'headers': {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*',
+                    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+                    'Access-Control-Allow-Headers': 'Content-Type'
+                },
+                'body': json.dumps({
+                    'success': True,
+                    'output': execution_result['output']
+                })
+            }
+                
     except Exception as e:
         return {
             'statusCode': 500,
@@ -146,7 +159,7 @@ def handler(request):
             },
             'body': json.dumps({
                 'success': False,
-                'output': str(e)
+                'output': 'Internal server error'
             })
         }
 
@@ -160,10 +173,13 @@ class LocalHandler(BaseHTTPRequestHandler):
             
             # Create a mock request object for the handler
             class MockRequest:
+                def __init__(self, body_data):
+                    self._body = json.dumps(body_data)
+                
                 def get_json(self):
-                    return data
+                    return json.loads(self._body)
             
-            result = handler(MockRequest())
+            result = handler(MockRequest(data))
             
             # Convert result to HTTP response
             self.send_response(result['statusCode'])
@@ -185,4 +201,4 @@ if __name__ == '__main__':
     port = int(os.environ.get('PORT', 3001))
     server = HTTPServer(('localhost', port), LocalHandler)
     print(f'Starting server on port {port}...')
-    server.serve_forever() 
+    server.serve_forever()
